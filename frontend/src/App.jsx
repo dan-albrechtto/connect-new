@@ -1,16 +1,17 @@
 /* ============================================
    COMPONENTE PRINCIPAL - APP.JSX
-   Responsável pela página do mapa e geolocalização
+   Página do mapa com geolocalização
+   VERSÃO CORRIGIDA: Leaflet funciona como teste
    ============================================ */
 
-import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css'; /* Importar CSS do Leaflet - CRÍTICO */
 import './App.css';
 
 /* ============================================
    CORRIGIR ÍCONE DO LEAFLET
-   O Leaflet precisa de URLs corretas para exibir marcadores
+   Leaflet precisa de URLs corretas para exibir marcadores
    ============================================ */
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -24,9 +25,13 @@ L.Icon.Default.mergeOptions({
    ============================================ */
 function App() {
   /* Estados da aplicação */
-  const [userLocation, setUserLocation] = useState(null); // Localização do usuário
-  const [loading, setLoading] = useState(true); // Indicador de carregamento
-  const [error, setError] = useState(null); // Mensagens de erro
+  const [userLocation, setUserLocation] = useState(null); /* Localização do usuário */
+  const [loading, setLoading] = useState(true); /* Indicador de carregamento */
+  const [error, setError] = useState(null); /* Mensagens de erro */
+  
+  /* Ref para o container do mapa - CRÍTICO */
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null); /* Armazena instância do mapa */
 
   /* ============================================
      useEffect: Obter geolocalização do usuário
@@ -46,7 +51,7 @@ function App() {
         (err) => {
           // Erro: mostrar mensagem mas usar localização padrão (Caxias do Sul)
           console.error('Erro ao obter localização:', err);
-          setError('Não foi possível acessar sua localização');
+          setError('Não foi possível acessar sua localização. Usando localização padrão.');
           // Fallback: coordenadas de Caxias do Sul (latitude, longitude)
           setUserLocation([-29.1683, -51.1894]);
           setLoading(false);
@@ -58,7 +63,44 @@ function App() {
       setUserLocation([-29.1683, -51.1894]);
       setLoading(false);
     }
-  }, []); // Array vazio = executa apenas na montagem do componente
+  }, []); /* Array vazio = executa apenas na montagem do componente */
+
+  /* ============================================
+     useEffect: Criar mapa quando temos localização
+     Executa quando userLocation muda
+     ============================================ */
+  useEffect(() => {
+    /* Só criar mapa se temos localização E container está pronto */
+    if (userLocation && mapRef.current && !mapInstanceRef.current) {
+      // Criar instância do mapa (exatamente como no teste que funcionou)
+      const map = L.map(mapRef.current).setView(userLocation, 15);
+
+      // Adicionar tiles do OpenStreetMap
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap',
+      }).addTo(map);
+
+      // Adicionar marcador na localização do usuário
+      L.marker(userLocation)
+        .addTo(map)
+        .bindPopup(
+          `<strong>Sua Localização</strong><br/>Lat: ${userLocation[0].toFixed(4)}<br/>Lng: ${userLocation[1].toFixed(4)}`
+        )
+        .openPopup();
+
+      // Armazenar referência ao mapa para limpeza posterior
+      mapInstanceRef.current = map;
+
+      // Cleanup: destruir mapa ao desmontar componente
+      return () => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      };
+    }
+  }, [userLocation]); /* Executar quando userLocation muda */
 
   /* ============================================
      Tela de carregamento
@@ -68,7 +110,7 @@ function App() {
     return (
       <div className="container">
         <div className="loading">
-          <p>Obtendo sua localização...</p>
+          <p>📍 Obtendo sua localização...</p>
         </div>
       </div>
     );
@@ -82,7 +124,7 @@ function App() {
     <div className="container">
       {/* ========== HEADER ========== */}
       <header className="header">
-        <h1>Connect Cidade</h1>
+        <h1>🌍 Connect Cidade</h1>
         <p>Mapeamento de Problemas Urbanos</p>
       </header>
 
@@ -91,38 +133,8 @@ function App() {
         {/* Mostrar mensagem de erro se houver */}
         {error && <div className="error-message">{error}</div>}
         
-        {/* Renderizar mapa apenas se temos a localização do usuário */}
-        {userLocation && (
-          <MapContainer
-            center={userLocation} // Centro do mapa na localização do usuário
-            zoom={15} // Nível de zoom (quanto maior, mais próximo)
-            scrollWheelZoom={true} // Permitir zoom com rodinha do mouse/trackpad
-            className="map-container"
-          >
-            {/* Adicionar tiles (imagens) do mapa */}
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              crossOrigin="anonymous"
-              tms={false} /* TMS não é usado para OpenStreetMap */
-              noWrap={false} /* Permite repetir o mapa horizontalmente */
-              maxZoom={19}
-              minZoom={1}
-              detectRetina={true} /* Melhora em telas de alta densidade */
-            />
-            
-            {/* Adicionar marcador na localização do usuário */}
-            <Marker position={userLocation}>
-              <Popup>
-                <strong>Sua Localização</strong>
-                <br />
-                Lat: {userLocation[0].toFixed(4)}
-                <br />
-                Lng: {userLocation[1].toFixed(4)}
-              </Popup>
-            </Marker>
-          </MapContainer>
-        )}
+        {/* Container do mapa - ref permite que Leaflet acesse este elemento */}
+        <div ref={mapRef} className="map-container"></div>
       </div>
 
       {/* ========== FOOTER COM BOTÕES ========== */}
