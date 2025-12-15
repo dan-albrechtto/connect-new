@@ -1,0 +1,193 @@
+/* ============================================
+   ESTILOS DO COMPONENTE APP
+   Cores temáticas verdes + complementares
+   ============================================ */
+
+/* ========== CORES TEMÁTICAS ========== */
+/* Verde principal: #1a7e6d */
+/* Verde claro: #2a9e8d */
+/* Verde escuro: #0f6b5f */
+/* Complementar (rosa suave): #e8d4d8 */
+/* Fundo claro: #f0f7f4 */
+/* Branco: #ffffff */
+
+/* ========== CONTAINER PRINCIPAL ========== */
+.container {
+  display: flex;
+  flex-direction: column; /* Empilhar elementos verticalmente */
+  height: 100vh; /* Ocupar 100% da altura da tela */
+  width: 100%; /* Ocupar 100% da largura */
+  background-color: #fff;
+}
+
+/* ========== HEADER ========== */
+.header {
+  /* Gradiente verde do escuro para o claro */
+  background: linear-gradient(135deg, #0f6b5f 0%, #1a7e6d 50%, #2a9e8d 100%);
+  color: white;
+  padding: 16px 20px; /* Espaçamento interno */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Sombra sutil */
+  flex-shrink: 0; /* Não diminui de tamanho ao encolher container */
+}
+
+/* Título do header */
+.header h1 {
+  font-size: 24px;
+  margin: 0;
+  font-weight: 700; /* Negrito */
+}
+
+/* Subtítulo do header */
+.header p {
+  font-size: 12px;
+  margin: 4px 0 0 0;
+  opacity: 0.95; /* Ligeiramente transparente */
+}
+
+/* ========== MAPA (60% DA ALTURA - AJUSTADO PARA MOBILE) ========== */
+.map-wrapper {
+  /* flex: 1 significa ocupar espaço proporcional */
+  /* Alteramos para flex-grow + altura fixa para dar mais controle */
+  flex-grow: 1;
+  max-height: 70vh; /* Máximo 60% da altura da viewport (vh = viewport height) */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Garante que o mapa não transborde */
+  position: relative; /* Para posicionar mensagens de erro absolutamente */
+  min-height: 0; /* Necessário para flex funcionar corretamente */
+}
+
+/* ========== AJUSTE PARA DESKTOP ========== */
+/* Em telas maiores, aumentar o mapa para 70% */
+@media (min-width: 768px) {
+  .map-wrapper {
+    max-height: 80vh; /* 70% da altura em desktop */
+  }
+}
+
+/* Container do mapa Leaflet */
+.map-container {
+  width: 100%; /* Ocupa 100% da largura */
+  height: 100%; /* Ocupa 100% da altura do wrapper */
+  z-index: 1;
+}
+
+/* ========== MENSAGEM DE ERRO ========== */
+.error-message {
+  position: absolute; /* Flutua sobre o mapa */
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  background-color: #d63031; /* Vermelho para alertas */
+  color: white;
+  padding: 12px;
+  border-radius: 8px; /* Cantos arredondados */
+  font-size: 14px;
+  z-index: 10; /* Aparece acima do mapa */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ========== TELA DE CARREGAMENTO ========== */
+.loading {
+  display: flex;
+  align-items: center; /* Centralizar verticalmente */
+  justify-content: center; /* Centralizar horizontalmente */
+  height: 100%;
+  font-size: 16px;
+  color: #1a7e6d; /* Cor verde temática */
+}
+
+/* ========== FOOTER COM BOTÕES ========== */
+.footer {
+  display: flex;
+  gap: 12px; /* Espaço entre botões */
+  padding: 16px;
+  background-color: #f0f7f4; /* Fundo verde claro */
+  border-top: 2px solid #2a9e8d; /* Linha verde no topo */
+  flex-shrink: 0; /* Não diminui ao encolher container */
+  flex-wrap: wrap; /* Botões quebram em linhas se necessário */
+}
+
+/* ========== BOTÕES ========== */
+.btn-primary,
+.btn-secondary {
+  flex: 1; /* Ocupam espaço igual */
+  min-width: 140px; /* Largura mínima */
+  padding: 12px 16px; /* Espaçamento interno */
+  border: none; /* Remove borda padrão */
+  border-radius: 8px; /* Cantos arredondados */
+  font-size: 14px;
+  font-weight: 600; /* Negrito */
+  cursor: pointer; /* Cursor de clique */
+  transition: all 0.3s ease; /* Animação suave */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== BOTÃO PRIMÁRIO (Verde escuro) ========== */
+.btn-primary {
+  background-color: #1a7e6d; /* Verde temático */
+  color: white;
+}
+
+/* Efeito ao clicar no botão primário */
+.btn-primary:active {
+  background-color: #0f6b5f; /* Verde mais escuro */
+  transform: scale(0.98); /* Reduzir ligeiramente */
+}
+
+/* ========== BOTÃO SECUNDÁRIO (Branco com borda verde) ========== */
+.btn-secondary {
+  background-color: white;
+  color: #1a7e6d; /* Texto verde */
+  border: 2px solid #1a7e6d; /* Borda verde */
+}
+
+/* Efeito ao clicar no botão secundário */
+.btn-secondary:active {
+  background-color: #f0f7f4; /* Fundo verde muito claro */
+  transform: scale(0.98);
+}
+
+/* ========== RESPONSIVIDADE - MOBILE ========== */
+@media (max-width: 600px) {
+  /* Reduzir tamanho do header em celulares */
+  .header h1 {
+    font-size: 20px;
+  }
+
+  .header p {
+    font-size: 11px;
+  }
+
+  /* Ajustar espaçamento do footer */
+  .footer {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  /* Reduzir tamanho dos botões em celulares */
+  .btn-primary,
+  .btn-secondary {
+    padding: 10px 12px;
+    font-size: 13px;
+    min-width: 120px;
+  }
+}
+
+/* ========== CUSTOMIZAÇÃO DO LEAFLET ========== */
+/* Ajustar fonte dos popups do mapa */
+.leaflet-container {
+  font-family: inherit;
+}
+
+/* Estilo dos popups (caixas de informação) */
+.leaflet-popup-content-wrapper {
+  border-radius: 8px; /* Cantos arredondados */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  background-color: white;
+}
+
+/* Cor da seta do popup */
+.leaflet-popup-tip {
+  background-color: white;
+}
