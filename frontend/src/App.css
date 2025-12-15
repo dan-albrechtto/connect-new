@@ -53,7 +53,7 @@
   flex-grow: 1;
   
   /* max-height limita o tamanho (diferente de 75% para deixar espaço ao footer) */
-  max-height: 60vh;
+  max-height: 70vh;
   
   /* Garantir que nada transborde */
   width: 100%;
@@ -76,7 +76,7 @@
 /* Aumentar mapa em desktop (telas >= 768px) */
 @media (min-width: 768px) {
   .map-wrapper {
-    max-height: 70vh; /* 70% da altura em desktop */
+    max-height: 100vh; /* 70% da altura em desktop */
   }
 }
 
@@ -182,14 +182,48 @@
   }
 }
 
-/* ========== CUSTOMIZAÇÃO DO LEAFLET ========== */
-/* Garantir que Leaflet funcione corretamente */
+/* ============================================
+   ESTILOS LEAFLET - CRÍTICO PARA FUNCIONAR
+   Leaflet precisa destas propriedades CSS
+   ============================================ */
+
+/* Container do mapa DEVE ter altura definida */
+.leaflet-container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Garantir que o wrapper tenha posição relativa */
+.map-wrapper {
+  position: relative;
+}
+
+/* Imagens dos tiles não devem ser arrastáveis */
+.leaflet-tile-container img {
+  -webkit-user-drag: none;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Fix para tiles não carregarem corretamente */
+.leaflet-tile {
+  filter: inherit;
+}
+
+/* Estilo dos popups (caixas de informação) */
 .leaflet-container {
   font-family: inherit;
   background: #ddd;
 }
 
-/* Estilo dos popups (caixas de informação) */
 .leaflet-popup-content-wrapper {
   border-radius: 8px; /* Cantos arredondados */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -200,3 +234,5 @@
 .leaflet-popup-tip {
   background-color: white;
 }
+
+

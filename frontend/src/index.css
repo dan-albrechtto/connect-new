@@ -9,54 +9,30 @@
   box-sizing: border-box;
 }
 
-/* Garante que o app ocupe 100% da tela */
-html, body, #root {
-  width: 100%;
+/* ============================================
+   CRÍTICO: html e body ocupam EXATAMENTE 100%
+   Sem overflow (sem espaço extra branco)
+   ============================================ */
+html {
   height: 100%;
+  width: 100%;
+  overflow: hidden; /* Não mostrar scrollbar */
+}
+
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* Não mostrar scrollbar */
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* Cor de fundo leve */
-body {
-  background-color: #f0f7f4;
-}
-
-/* ============================================
-   ESTILOS LEAFLET - CRÍTICO PARA FUNCIONAR
-   Leaflet precisa destas propriedades CSS
-   ============================================ */
-
-/* Container do mapa DEVE ter altura definida */
-.leaflet-container {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
-
-/* Garantir que o wrapper tenha posição relativa */
-.map-wrapper {
-  position: relative;
-}
-
-/* Imagens dos tiles não devem ser arrastáveis */
-.leaflet-tile-container img {
-  -webkit-user-drag: none;
-  user-select: none;
-  -moz-user-select: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-}
-
-/* Fix para tiles não carregarem corretamente */
-.leaflet-tile {
-  filter: inherit;
 }
