@@ -36,3 +36,19 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Adicione ao final: */
+html, body, #root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* Garante que nada fica fora da viewport */
+}
+
+/* Para mobile específico: */
+@media (max-width: 768px) {
+  html, body, #root {
+    overflow: hidden; /* Reforça em mobile */
+  }
+}
+

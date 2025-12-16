@@ -3,6 +3,7 @@
    Cores temáticas verdes + complementares
    ============================================ */
 
+
 /* ========== CORES TEMÁTICAS ========== */
 /* Verde principal: #1a7e6d */
 /* Verde claro: #2a9e8d */
@@ -11,14 +12,23 @@
 /* Fundo claro: #f0f7f4 */
 /* Branco: #ffffff */
 
+
 /* ========== CONTAINER PRINCIPAL ========== */
 .container {
   display: flex;
-  flex-direction: column; /* Empilhar elementos verticalmente */
-  height: 100vh; /* Ocupar 100% da altura da tela */
-  width: 100%; /* Ocupar 100% da largura */
+  flex-direction: column; /* Empilhar: header | mapa | footer */
+  
+  /* ✅ CORRIGIDO: Usar 100% em vez de 100vh */
+  /* 100vh inclui barra do navegador em mobile e causa overflow */
+  /* 100% respeita altura real disponível */
+  height: 100%;
+  width: 100%;
   background-color: #fff;
+  
+  /* ✅ IMPORTANTE: Garantir que nada transborda */
+  overflow: hidden;
 }
+
 
 /* ========== HEADER ========== */
 .header {
@@ -27,8 +37,12 @@
   color: white;
   padding: 16px 20px; /* Espaçamento interno */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Sombra sutil */
-  flex-shrink: 0; /* Não diminui de tamanho ao encolher container */
+  
+  /* ✅ CRÍTICO: Não diminui nem cresce - tamanho fixo */
+  flex-shrink: 0;
+  flex-grow: 0;
 }
+
 
 /* Título do header */
 .header h1 {
@@ -37,6 +51,7 @@
   font-weight: 700; /* Negrito */
 }
 
+
 /* Subtítulo do header */
 .header p {
   font-size: 12px;
@@ -44,25 +59,28 @@
   opacity: 0.95; /* Ligeiramente transparente */
 }
 
-/* ========== MAPA (60% DA ALTURA - AJUSTADO PARA MOBILE) ========== */
+
+/* ========== MAPA (OCUPA ESPAÇO DISPONÍVEL) ========== */
 .map-wrapper {
-  /* Posição relativa para que o mapa absolute se posicione corretamente */
+  /* ✅ CORRIGIDO: Usa flex-grow para ocupar espaço disponível */
+  /* Não usar max-height (limitava o mapa) */
+  flex-grow: 1;
+  flex-shrink: 1;
+  
+  /* ✅ IMPORTANTE: Posição relativa para absolute funcionar */
   position: relative;
   
-  /* flex-grow faz ocupar espaço disponível */
-  flex-grow: 1;
-  
-  /* max-height limita o tamanho (diferente de 75% para deixar espaço ao footer) */
-  max-height: 70vh;
-  
-  /* Garantir que nada transborde */
+  /* ✅ Garantir que nada transborda do wrapper */
   width: 100%;
   overflow: hidden;
+  
+  /* Remover max-height: 70vh (era o culpado do footer ser empurrado) */
 }
+
 
 /* Container do mapa Leaflet - CRÍTICO */
 .map-container {
-  /* Posição absoluta para dar controle total ao Leaflet */
+  /* ✅ Posição absoluta para dar controle total ao Leaflet */
   position: absolute;
   top: 0;
   left: 0;
@@ -73,12 +91,21 @@
   z-index: 1;
 }
 
-/* Aumentar mapa em desktop (telas >= 768px) */
-@media (min-width: 768px) {
-  .map-wrapper {
-    max-height: 100vh; /* 70% da altura em desktop */
-  }
+
+/* Leaflet container - compatibilidade */
+.leaflet-container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  font-family: inherit;
+  background: #ddd;
 }
+
 
 /* ========== MENSAGEM DE ERRO ========== */
 .error-message {
@@ -95,6 +122,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
+
 /* ========== TELA DE CARREGAMENTO ========== */
 .loading {
   display: flex;
@@ -105,6 +133,7 @@
   color: #1a7e6d; /* Cor verde temática */
 }
 
+
 /* ========== FOOTER COM BOTÕES ========== */
 .footer {
   display: flex;
@@ -112,9 +141,15 @@
   padding: 16px;
   background-color: #f0f7f4; /* Fundo verde claro */
   border-top: 2px solid #2a9e8d; /* Linha verde no topo */
-  flex-shrink: 0; /* Não diminui ao encolher container */
+  
+  /* ✅ CRÍTICO: Não diminui nem cresce - tamanho fixo */
+  flex-shrink: 0;
+  flex-grow: 0;
+  
   flex-wrap: wrap; /* Botões quebram em linhas se necessário */
+  width: 100%;
 }
+
 
 /* ========== BOTÕES ========== */
 .btn-primary,
@@ -131,17 +166,20 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+
 /* ========== BOTÃO PRIMÁRIO (Verde escuro) ========== */
 .btn-primary {
   background-color: #1a7e6d; /* Verde temático */
   color: white;
 }
 
+
 /* Efeito ao clicar no botão primário */
 .btn-primary:active {
   background-color: #0f6b5f; /* Verde mais escuro */
   transform: scale(0.98); /* Reduzir ligeiramente */
 }
+
 
 /* ========== BOTÃO SECUNDÁRIO (Branco com borda verde) ========== */
 .btn-secondary {
@@ -150,11 +188,13 @@
   border: 2px solid #1a7e6d; /* Borda verde */
 }
 
+
 /* Efeito ao clicar no botão secundário */
 .btn-secondary:active {
   background-color: #f0f7f4; /* Fundo verde muito claro */
   transform: scale(0.98);
 }
+
 
 /* ========== RESPONSIVIDADE - MOBILE (extra) ========== */
 @media (max-width: 600px) {
@@ -163,15 +203,18 @@
     font-size: 20px;
   }
 
+
   .header p {
     font-size: 11px;
   }
+
 
   /* Ajustar espaçamento do footer */
   .footer {
     padding: 12px;
     gap: 8px;
   }
+
 
   /* Reduzir tamanho dos botões em celulares */
   .btn-primary,
@@ -182,27 +225,10 @@
   }
 }
 
+
 /* ============================================
-   ESTILOS LEAFLET - CRÍTICO PARA FUNCIONAR
-   Leaflet precisa destas propriedades CSS
+   ESTILOS LEAFLET - COMPATIBILIDADE
    ============================================ */
-
-/* Container do mapa DEVE ter altura definida */
-.leaflet-container {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
-
-/* Garantir que o wrapper tenha posição relativa */
-.map-wrapper {
-  position: relative;
-}
 
 /* Imagens dos tiles não devem ser arrastáveis */
 .leaflet-tile-container img {
@@ -213,26 +239,22 @@
   -ms-user-select: none;
 }
 
+
 /* Fix para tiles não carregarem corretamente */
 .leaflet-tile {
   filter: inherit;
 }
 
-/* Estilo dos popups (caixas de informação) */
-.leaflet-container {
-  font-family: inherit;
-  background: #ddd;
-}
 
+/* Estilo dos popups (caixas de informação) */
 .leaflet-popup-content-wrapper {
   border-radius: 8px; /* Cantos arredondados */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   background-color: white;
 }
 
+
 /* Cor da seta do popup */
 .leaflet-popup-tip {
   background-color: white;
 }
-
-

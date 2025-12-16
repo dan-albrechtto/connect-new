@@ -5,11 +5,19 @@
 
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'fs'
 
 export default defineConfig({
-  plugins: [react()], // Ativa suporte a React/JSX
+  plugins: [react()],
   server: {
-    host: '0.0.0.0', // Aceitar conexões de qualquer IP (permite acessar de celular)
-    port: 5173 // Porta padrão do Vite
+    https: {
+      key: fs.readFileSync('./cert-key.pem'),
+      cert: fs.readFileSync('./cert.pem'),
+    },
+    host: '0.0.0.0',
+    port: 5173
   }
 })
+
+
+
