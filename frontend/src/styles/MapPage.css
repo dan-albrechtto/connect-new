@@ -1,0 +1,362 @@
+/* ============================================
+   ESTILOS DA PÁGINA DO MAPA
+   Arquivo: src/styles/MapPage.css
+   ============================================ */
+
+/* ========== CONTAINER PRINCIPAL ========== */
+
+.map-page-container {
+  /* Display flex = organizar elementos em coluna */
+  display: flex;
+  
+  /* Flex-direction = coluna vertical */
+  flex-direction: column;
+  
+  /* Height 100% = ocupar tela inteira */
+  height: 100%;
+  
+  /* Background = cor de fundo */
+  background: #f5f5f5;
+  
+  /* Overflow-y = permitir scroll vertical */
+  overflow-y: auto;
+}
+
+/* ========== TELA DE CARREGAMENTO ========== */
+
+.loading-screen {
+  /* Flex = centralizar conteúdo */
+  display: flex;
+  
+  /* Flex-direction = coluna */
+  flex-direction: column;
+  
+  /* Align-items = centralizar horizontalmente */
+  align-items: center;
+  
+  /* Justify-content = centralizar verticalmente */
+  justify-content: center;
+  
+  /* Height = ocupar tela inteira */
+  height: 100%;
+  
+  /* Background = gradiente verde */
+  background: linear-gradient(135deg, #0f6b5f 0%, #1a7e6d 100%);
+  
+  /* Color = cor do texto */
+  color: white;
+  
+  /* Font-size = tamanho do texto */
+  font-size: 16px;
+}
+
+/* Animação do spinner de carregamento */
+.loading-spinner {
+  /* Font-size = tamanho do emoji */
+  font-size: 48px;
+  
+  /* Margin-bottom = espaço para o texto */
+  margin-bottom: 20px;
+  
+  /* Animation = fazer rodar */
+  animation: spin 2s linear infinite;
+}
+
+/* Definição da animação de rotação */
+@keyframes spin {
+  /* De: estado inicial (0 graus) */
+  from {
+    transform: rotate(0deg);
+  }
+  /* Para: estado final (360 graus = volta completa) */
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========== HEADER ========== */
+
+.map-header {
+  /* Background = gradiente verde */
+  background: linear-gradient(135deg, #0f6b5f 0%, #1a7e6d 50%, #2a9e8d 100%);
+  
+  /* Color = cor do texto (branco) */
+  color: white;
+  
+  /* Padding = espaço interno */
+  padding: 30px 20px 25px;
+  
+  /* Text-align = centralizar texto */
+  text-align: center;
+  
+  /* Box-shadow = sombra abaixo do header */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  /* Z-index = ficar acima do mapa */
+  z-index: 10;
+}
+
+/* Título do header */
+.map-header h1 {
+  /* Font-size = tamanho do texto */
+  font-size: 28px;
+  
+  /* Margin = remover margem padrão */
+  margin: 0 0 10px 0;
+  
+  /* Font-weight = peso da fonte */
+  font-weight: 700;
+}
+
+/* Subtítulo do header */
+.map-header p {
+  /* Font-size = tamanho do texto */
+  font-size: 13px;
+  
+  /* Margin = remover margem padrão */
+  margin: 0;
+  
+  /* Opacity = transparência */
+  opacity: 0.95;
+}
+
+/* ========== WRAPPER DO MAPA ========== */
+
+.map-wrapper {
+  /* Flex = crescer para ocupar espaço disponível */
+  flex: 1;
+  
+  /* Position = referência para mensagens de erro */
+  position: relative;
+  
+  /* Overflow = esconder conteúdo que transborda */
+  overflow: hidden;
+}
+
+/* ========== CONTAINER DO MAPA ========== */
+
+.map-container {
+  /* Width = ocupar largura total */
+  width: 100%;
+  
+  /* Height = ocupar altura total */
+  height: 100%;
+  
+  /* Background = cor caso mapa não carregue */
+  background: #e0e0e0;
+  
+  /* Z-index = estar atrás da mensagem de erro */
+  z-index: 1;
+}
+
+/* ========== MENSAGEM DE ERRO ========== */
+
+.error-message {
+  /* Position = sobrepor o mapa */
+  position: absolute;
+  
+  /* Top + left = posição no canto superior esquerdo */
+  top: 15px;
+  left: 15px;
+  
+  /* Background = cor de fundo vermelha */
+  background-color: rgba(192, 21, 47, 0.9);
+  
+  /* Color = cor do texto (branco) */
+  color: white;
+  
+  /* Padding = espaço interno */
+  padding: 15px 20px;
+  
+  /* Border-radius = cantos arredondados */
+  border-radius: 8px;
+  
+  /* Font-size = tamanho do texto */
+  font-size: 14px;
+  
+  /* Z-index = estar acima do mapa */
+  z-index: 100;
+  
+  /* Max-width = não ocupar tela inteira */
+  max-width: 90%;
+  
+  /* Box-shadow = sombra */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ========== POPUP DO MAPA (Leaflet) ========== */
+
+.problem-popup {
+  /* Font-size = tamanho do texto */
+  font-size: 12px;
+  
+  /* Line-height = espaço entre linhas */
+  line-height: 1.5;
+}
+
+.problem-popup strong {
+  /* Display = quebrar linha */
+  display: block;
+  
+  /* Margin-bottom = espaço */
+  margin-bottom: 8px;
+  
+  /* Color = cor do texto */
+  color: #0f6b5f;
+}
+
+.problem-popup p {
+  /* Margin = remover margem padrão */
+  margin: 5px 0;
+}
+
+/* ========== FOOTER COM BOTÕES ========== */
+
+.map-footer {
+  /* Display = organizar botões em linha */
+  display: flex;
+  
+  /* Gap = espaço entre botões */
+  gap: 10px;
+  
+  /* Padding = espaço interno */
+  padding: 15px;
+  
+  /* Background = cor de fundo */
+  background: white;
+  
+  /* Border-top = linha divisória */
+  border-top: 1px solid #eee;
+  
+  /* Z-index = estar acima do mapa */
+  z-index: 10;
+}
+
+/* ========== BOTÕES ========== */
+
+.btn-primary,
+.btn-secondary {
+  /* Flex = crescer igualmente */
+  flex: 1;
+  
+  /* Padding = espaço interno */
+  padding: 14px 16px;
+  
+  /* Border = remover borda padrão */
+  border: none;
+  
+  /* Border-radius = cantos arredondados */
+  border-radius: 8px;
+  
+  /* Font-size = tamanho do texto */
+  font-size: 14px;
+  
+  /* Font-weight = peso da fonte */
+  font-weight: 600;
+  
+  /* Cursor = mudar cursor para pointer */
+  cursor: pointer;
+  
+  /* Transition = animação suave ao mudar estado */
+  transition: all 0.3s ease;
+  
+  /* White-space = não quebrar texto em múltiplas linhas */
+  white-space: nowrap;
+}
+
+/* Botão primário (Registrar Problema) */
+.btn-primary {
+  /* Background = verde */
+  background-color: #1a7e6d;
+  
+  /* Color = texto branco */
+  color: white;
+}
+
+/* Hover (quando passa mouse) do botão primário */
+.btn-primary:hover {
+  /* Background = verde mais escuro */
+  background-color: #0f6b5f;
+  
+  /* Transform = aumentar levemente */
+  transform: scale(1.02);
+}
+
+/* Active (quando clica) do botão primário */
+.btn-primary:active {
+  /* Transform = diminuir levemente */
+  transform: scale(0.98);
+}
+
+/* Botão secundário (Minha Localização) */
+.btn-secondary {
+  /* Background = cinza claro */
+  background-color: #f0f0f0;
+  
+  /* Color = texto escuro */
+  color: #333;
+  
+  /* Border = borda cinza */
+  border: 1px solid #ddd;
+}
+
+/* Hover do botão secundário */
+.btn-secondary:hover {
+  /* Background = cinza mais escuro */
+  background-color: #e8e8e8;
+  
+  /* Transform = aumentar levemente */
+  transform: scale(1.02);
+}
+
+/* Active do botão secundário */
+.btn-secondary:active {
+  /* Transform = diminuir levemente */
+  transform: scale(0.98);
+}
+
+/* ========== RESPONSIVIDADE ========== */
+
+/* Para tablets (768px e acima) */
+@media (min-width: 768px) {
+  /* Aumentar tamanho do header */
+  .map-header h1 {
+    font-size: 32px;
+  }
+  
+  /* Aumentar padding do footer */
+  .map-footer {
+    padding: 20px;
+  }
+  
+  /* Aumentar tamanho dos botões */
+  .btn-primary,
+  .btn-secondary {
+    padding: 16px 20px;
+    font-size: 16px;
+  }
+}
+
+/* Para desktops (1024px e acima) */
+@media (min-width: 1024px) {
+  /* Aumentar ainda mais os textos */
+  .map-header h1 {
+    font-size: 36px;
+  }
+}
+
+/* ========== CUSTOMIZAÇÃO DO LEAFLET ========== */
+
+/* Marcador customizado para problemas */
+.problem-marker {
+  /* CSS customizado se necessário */
+}
+
+/* Popup do Leaflet */
+.leaflet-popup-content-wrapper {
+  /* Border-radius = cantos arredondados */
+  border-radius: 8px;
+  
+  /* Box-shadow = sombra */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
