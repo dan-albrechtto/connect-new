@@ -1,8 +1,3 @@
-/* ============================================
-   CONFIGURAÇÃO DO VITE
-   Define como o Vite funciona durante dev e build
-   ============================================ */
-
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
@@ -18,6 +13,8 @@ export default defineConfig({
     port: 5173
   }
 })
+
+
 
 
 
