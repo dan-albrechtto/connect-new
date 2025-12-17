@@ -142,3 +142,34 @@ vite.config.ts.timestamp-*
 cert.pem
 cert-key.pem
 *.pem
+
+# .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+
+# Node
+node_modules/
+dist/
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos sensíveis
+.env
+.env.local
+uploads/
