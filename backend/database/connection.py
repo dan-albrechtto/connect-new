@@ -11,7 +11,7 @@
 # 1. IMPORTAÇÕES NECESSÁRIAS
 # ═══════════════════════════════════════════════════════════════════════════
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 import os
 from dotenv import load_dotenv
@@ -129,7 +129,8 @@ def test_connection():
     """Testa se a conexão com o banco está funcionando."""
     try:
         connection = engine.connect()
-        connection.execute("SELECT 1")
+        result = connection.execute(text("SELECT 1"))
+        result.scalar()
         connection.close()
         logger.info("✅ Conexão com banco testada com sucesso!")
         return True
