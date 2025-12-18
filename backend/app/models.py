@@ -530,6 +530,73 @@ class Relatorio(Base):
     criado_em = Column(DateTime, default=func.now(), nullable=False)
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# ADIÇÃO AO ARQUIVO: models.py
+# DESCRIÇÃO: Adicionar tabela AuditLog para rastrear ações de admin
+# 
+# INSTRUÇÃO: Cole este código no final de models.py (antes do resumo)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# MODELO: AuditLog
+# Tabela: auditoria de ações de administrador
+# Rastreia quem fez o quê, quando e qual mudança
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class AuditLog(Base):
+    # Nome da tabela no PostgreSQL
+    __tablename__ = "audit_logs"
+    
+    # ========== COLUNAS ==========
+    
+    # ID: chave primária
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # ADMINISTRADOR_ID: qual admin fez a ação? (chave estrangeira)
+    # Quem realizou a ação de auditoria
+    administrador_id = Column(
+        Integer,
+        ForeignKey("usuarios.id", ondelete="SET NULL"),
+        index=True
+    )
+    
+    # ACAO: qual tipo de ação foi realizada?
+    # Enum com ações possíveis: "ATUALIZAR_STATUS", "CRIAR_COMENTARIO", etc
+    acao = Column(String(50), nullable=False)
+    
+    # SOLICITACAO_ID: qual solicitação foi afetada? (chave estrangeira)
+    # Qual problema urbano teve ação
+    solicitacao_id = Column(
+        Integer,
+        ForeignKey("solicitacoes.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+    
+    # STATUS_ANTERIOR: qual era o status antes da mudança?
+    # Ex: "PENDENTE", "EM_ANALISE", "EM_ANDAMENTO"
+    status_anterior = Column(String(50))
+    
+    # STATUS_NOVO: qual é o status depois da mudança?
+    # Ex: "RESOLVIDO", "CANCELADO"
+    status_novo = Column(String(50))
+    
+    # MOTIVO: por que mudou? Justificativa da ação
+    # Ex: "Problema foi reparado pela prefeitura"
+    motivo = Column(Text)
+    
+    # CRIADO_EM: data/hora da ação automática
+    # Quando exatamente isso aconteceu
+    criado_em = Column(DateTime, default=func.now(), index=True, nullable=False)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# FIM DA ADIÇÃO - Próximo: Adicionar AuditLog ao models.py
+# ═════════════════════════════════════════════════════════
+
+
 # ========== RESUMO DAS TABELAS ==========
 # 1. usuarios          - dados de login/perfil dos usuários
 # 2. categorias        - tipos de problemas (Lixo, Iluminação, Acessibilidade)
