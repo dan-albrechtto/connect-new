@@ -88,6 +88,8 @@ def api_health():
 from app.routes import auth
 app.include_router(auth.router)
 
+from app.routes import problems
+app.include_router(problems.router)
 
 
 if __name__ == "__main__":

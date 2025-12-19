@@ -98,7 +98,7 @@ def login_cidadao(
     
     # Gera token
     token = criar_access_token(
-        data={"sub": usuario.id, "email": usuario.email, "tipo": "cidadao"}
+        data={"sub": usuario.id, "cpf": usuario.cpf, "email": usuario.email, "tipo": "cidadao"}
     )
     
     logger.info(f"✅ Cidadão logado: {request.cpf}")

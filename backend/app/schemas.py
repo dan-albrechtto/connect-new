@@ -39,23 +39,23 @@ class CategoriaResponse(BaseModel):
 
 # SOLICITACAO
 class SolicitacaoCreate(BaseModel):
-    titulo: str
     descricao: str
     latitude: float
     longitude: float
     categoria_id: int
-    usuario_id: int
+    endereco: str
 
 
 class SolicitacaoResponse(BaseModel):
     id: int
-    titulo: str
     descricao: str
     latitude: float
     longitude: float
     categoria_id: int
     usuario_id: int
     status_id: int
+    endereco: str
+    protocolo: str
     criado_em: datetime
 
     class Config:
