@@ -85,6 +85,9 @@ def api_health():
 # app.include_router(auth.router, prefix="/api/auth", tags=["Autenticação"])
 # app.include_router(problems.router, prefix="/api", tags=["Problemas"])
 # app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+from app.routes import auth
+app.include_router(auth.router)
+
 
 
 if __name__ == "__main__":
