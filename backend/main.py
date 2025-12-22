@@ -10,7 +10,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from database.connection import create_all_tables, test_connection
+from database.connection import criar_todas_as_tabelas, testar_conexao
 from config import APP_NAME, APP_VERSION, DEBUG
 import logging
 
@@ -101,14 +101,14 @@ async def startup_event():
     logger.info("🚀 Iniciando Connect Cidade API")
     
     # Testar conexão com banco
-    if test_connection():
+    if testar_conexao():
         logger.info("✅ Conexão com banco OK")
     else:
         logger.error("❌ Falha ao conectar ao banco")
         raise Exception("Não conseguiu conectar ao banco de dados")
     
     # Criar tabelas se não existirem
-    create_all_tables()
+    criar_todas_as_tabelas()
     logger.info("✅ Tabelas criadas/verificadas")
 
 # ============================================================================
@@ -140,8 +140,8 @@ def api_health():
 from app.routes import auth
 app.include_router(auth.router)
 
-from app.routes import problems
-app.include_router(problems.router)
+from app.routes import solicitacoes
+app.include_router(solicitacoes.router)
 
 from app.routes import fotos
 app.include_router(fotos.router)

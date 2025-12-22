@@ -1,5 +1,5 @@
 # ============================================================================
-# problems.py - ROTAS DE PROBLEMAS URBANOS (CORRIGIDO COM JWT HEADER)
+# solicitacoes.py - ROTAS DE PROBLEMAS URBANOS (CORRIGIDO COM JWT HEADER) (era problems.py)
 # ============================================================================
 # Alterações:
 # 1. Adicionado Header no import de FastAPI
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import Solicitacao, Usuario, Categoria, Apoio
 from app.schemas import SolicitacaoCreate, SolicitacaoResponse
 from app.utils.security import extrair_user_id_do_token
-from database.connection import get_db
+from database.connection import obter_conexao
 from config import STATUS_SOLICITACAO
 from typing import List, Optional
 from datetime import datetime
@@ -54,30 +54,30 @@ def verificar_duplicata(
     Para produção, use Haversine ou PostGIS do PostgreSQL
     """
     # Busca todos os problemas da mesma categoria
-    problemas = db.query(Solicitacao).filter_by(
+    solicitacoes = db.query(Solicitacao).filter_by(
         categoria_id=categoria_id,
         status_id=STATUS_SOLICITACAO["RESOLVIDO"]  # Excluir resolvidos
     ).all()
 
     # Calcula distância aproximada (em graus, ~111km por grau)
-    for problema in problemas:
-        diff_lat = abs(problema.latitude - latitude)
-        diff_lon = abs(problema.longitude - longitude)
+    for solicitacao in solicitacoes:
+        diff_lat = abs(solicitacao.latitude - latitude)
+        diff_lon = abs(solicitacao.longitude - longitude)
         # Distância aproximada em km
         distancia_km = (diff_lat + diff_lon) * 111
         if distancia_km * 1000 < raio_metros:  # Converter para metros
-            return problema
+            return solicitacao
 
     return None
 
 # ============================================================================
-# CRIAR PROBLEMA
+# CRIAR SOLICITAÇÃO
 # ============================================================================
 
-@router.post("/api/problemas", response_model=SolicitacaoResponse, tags=["Problemas"])
-def criar_problema(
+@router.post("/api/solicitacoes", response_model=SolicitacaoResponse, tags=["Solicitações"])
+def criar_solicitacao(
     request: SolicitacaoCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
     """
@@ -125,12 +125,12 @@ def criar_problema(
         logger.info(f"⚠️ Duplicata encontrada para usuário {user_id}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Já existe problema similar neste local. ID: {duplicata.id}. Considere apoiar ao invés de criar novo.",
-            headers={"X-Problema-ID": str(duplicata.id)}
+            detail=f"Já existe solicitação similar neste local. ID: {duplicata.id}. Considere apoiar ao invés de criar novo.",
+            headers={"X-Solicitacao-ID": str(duplicata.id)}
         )
 
     # Cria novo problema
-    novo_problema = Solicitacao(
+    nova_solicitacao = Solicitacao(
         protocolo=gerar_protocolo(db),
         descricao=request.descricao,
         latitude=request.latitude,
@@ -142,26 +142,26 @@ def criar_problema(
         contador_apoios=0
     )
 
-    db.add(novo_problema)
+    db.add(nova_solicitacao)
     db.commit()
-    db.refresh(novo_problema)
-    logger.info(f"✅ Problema criado: {novo_problema.protocolo} por usuário {user_id}")
-    return novo_problema
+    db.refresh(nova_solicitacao)
+    logger.info(f"✅ Solicitação criada: {nova_solicitacao.protocolo} por usuário {user_id}")
+    return nova_solicitacao
 
 # ============================================================================
-# LISTAR PROBLEMAS
+# LISTAR SOLICITAÇÕES
 # ============================================================================
 
-@router.get("/api/problemas", response_model=List[SolicitacaoResponse], tags=["Problemas"])
-def listar_problemas(
-    db: Session = Depends(get_db),
+@router.get("/api/solicitacoes", response_model=List[SolicitacaoResponse], tags=["Solicitações"])
+def listar_solicitacoes(
+    db: Session = Depends(obter_conexao),
     categoria_id: Optional[int] = None,
     status_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 20
 ):
     """
-    Lista todos os problemas
+    Lista todos as solicitações
     Parâmetros opcionais:
     - categoria_id: filtrar por categoria
     - status_id: filtrar por status
@@ -173,43 +173,43 @@ def listar_problemas(
         query = query.filter_by(categoria_id=categoria_id)
     if status_id:
         query = query.filter_by(status_id=status_id)
-    problemas = query.order_by(
+    solicitacoes = query.order_by(
         Solicitacao.criado_em.desc()
     ).offset(skip).limit(limit).all()
-    return problemas
+    return solicitacoes
 
 # ============================================================================
-# OBTER PROBLEMA POR ID
+# OBTER SOLICITAÇÃO POR ID
 # ============================================================================
 
-@router.get("/api/problemas/{problema_id}", response_model=SolicitacaoResponse, tags=["Problemas"])
-def obter_problema(
-    problema_id: int,
-    db: Session = Depends(get_db)
+@router.get("/api/solicitacoes/{solicitacao_id}", response_model=SolicitacaoResponse, tags=["Solicitações"])
+def obter_solicitacao(
+    solicitacao_id: int,
+    db: Session = Depends(obter_conexao)
 ):
-    """Retorna detalhes de um problema específico"""
-    problema = db.query(Solicitacao).filter_by(id=problema_id).first()
-    if not problema:
+    """Retorna detalhes de uma solicitação específica"""
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Problema não encontrado"
+            detail="Solicitação não encontrada"
         )
 
-    return problema
+    return solicitacao
 
 # ============================================================================
-# ATUALIZAR PROBLEMA
+# ATUALIZAR SOLICITAÇÃO
 # ============================================================================
 
-@router.put("/api/problemas/{problema_id}", response_model=SolicitacaoResponse, tags=["Problemas"])
-def atualizar_problema(
-    problema_id: int,
+@router.put("/api/solicitacoes/{solicitacao_id}", response_model=SolicitacaoResponse, tags=["Solicitações"])
+def atualizar_solicitacao(
+    solicitacao_id: int,
     request: SolicitacaoCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
     """
-    Atualiza um problema (apenas o criador ou admin)
+    Atualiza uma solicitação (apenas o criador ou admin)
     Requer autenticação
     """
     # Extrai token do header Authorization: Bearer <token>
@@ -231,40 +231,40 @@ def atualizar_problema(
             detail="Token inválido"
         )
 
-    problema = db.query(Solicitacao).filter_by(id=problema_id).first()
-    if not problema:
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Problema não encontrado"
+            detail="Solicitação não encontrada"
         )
 
     # Verifica permissão (apenas criador)
-    if problema.usuario_id != user_id:
+    if solicitacao.usuario_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Você não tem permissão para editar este problema"
+            detail="Você não tem permissão para editar esta solicitação"
         )
 
     # Atualiza campos
-    problema.descricao = request.descricao
-    problema.endereco = request.endereco
+    solicitacao.descricao = request.descricao
+    solicitacao.endereco = request.endereco
     db.commit()
-    db.refresh(problema)
-    logger.info(f"✅ Problema {problema_id} atualizado")
-    return problema
+    db.refresh(solicitacao)
+    logger.info(f"✅ Solicitação {solicitacao_id} atualizada")
+    return solicitacao
 
 # ============================================================================
-# DELETAR PROBLEMA
+# DELETAR SOLICITAÇÃO
 # ============================================================================
 
-@router.delete("/api/problemas/{problema_id}", tags=["Problemas"])
-def deletar_problema(
-    problema_id: int,
-    db: Session = Depends(get_db),
+@router.delete("/api/solicitacoes/{solicitacao_id}", tags=["Solicitações"])
+def deletar_solicitacao(
+    solicitacao_id: int,
+    db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
     """
-    Deleta um problema (apenas o criador)
+    Deleta uma solicitação (apenas o criador)
     Requer autenticação
     """
     # Extrai token do header Authorization: Bearer <token>
@@ -286,38 +286,38 @@ def deletar_problema(
             detail="Token inválido"
         )
 
-    problema = db.query(Solicitacao).filter_by(id=problema_id).first()
-    if not problema:
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Problema não encontrado"
+            detail="Solicitação não encontrada"
         )
 
-    if problema.usuario_id != user_id:
+    if solicitacao.usuario_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Você não tem permissão para deletar este problema"
+            detail="Você não tem permissão para deletar esta solicitação"
         )
 
-    db.delete(problema)
+    db.delete(solicitacao)
     db.commit()
-    logger.info(f"✅ Problema {problema_id} deletado")
-    return {"message": "Problema deletado com sucesso"}
+    logger.info(f"✅ Solicitação {solicitacao_id} deletada")
+    return {"message": "Solicitação deletada com sucesso"}
 
 # ============================================================================
-# APOIAR PROBLEMA
+# APOIAR SOLICITAÇÃO
 # ============================================================================
 
-@router.post("/api/problemas/{problema_id}/apoios", tags=["Problemas"])
-def apoiar_problema(
-    problema_id: int,
-    db: Session = Depends(get_db),
+@router.post("/api/solicitacao/{solicitacao_id}/apoios", tags=["Solicitações"])
+def apoiar_solicitacao(
+    solicitacao_id: int,
+    db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
     """
-    Cidadão apoia um problema (aumenta contador)
+    Cidadão apoia uma solicitação (aumenta contador)
     Requer autenticação
-    Um usuário só pode apoiar uma vez por problema
+    Um usuário só pode apoiar uma vez por solicitação
     """
     # Extrai token do header Authorization: Bearer <token>
     token = None
@@ -338,39 +338,39 @@ def apoiar_problema(
             detail="Token inválido"
         )
 
-    problema = db.query(Solicitacao).filter_by(id=problema_id).first()
-    if not problema:
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Problema não encontrado"
+            detail="Solicitação não encontrada"
         )
 
     # Verifica se já apoia
     existe_apoio = db.query(Apoio).filter_by(
-        problema_id=problema_id,
+        solicitacao_id=solicitacao_id,
         usuario_id=user_id
     ).first()
 
     if existe_apoio:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Você já apoia este problema"
+            detail="Você já apoia esta solicitação"
         )
 
     # Cria apoio
     novo_apoio = Apoio(
-        problema_id=problema_id,
+        solicitacao_id=solicitacao_id,
         usuario_id=user_id
     )
 
     # Incrementa contador
-    problema.contador_apoios += 1
+    solicitacao.contador_apoios += 1
     db.add(novo_apoio)
     db.commit()
-    logger.info(f"✅ Apoio adicionado ao problema {problema_id} por usuário {user_id}")
+    logger.info(f"✅ Apoio adicionado à solicitação {solicitacao_id} por usuário {user_id}")
     return {
         "message": "Apoio registrado com sucesso",
-        "contador_apoios": problema.contador_apoios
+        "contador_apoios": solicitacao.contador_apoios
     }
 
 # ============================================================================

@@ -100,13 +100,13 @@ logger.info("✅ SessionLocal criada com sucesso!")
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def get_db() -> Generator[Session, None, None]:  # ← ESTA LINHA FOI ALTERADA
+def obter_conexao() -> Generator[Session, None, None]:  # ← ESTA LINHA FOI ALTERADA
     """
     Fornece uma sessão do banco para cada requisição FastAPI.
     
     Uso em FastAPI:
         @app.get("/usuarios")
-        def listar_usuarios(db: Session = Depends(get_db)):
+        def listar_usuarios(db: Session = Depends(obter_conexao)):
             return db.query(Usuario).all()
     """
     db = SessionLocal()
@@ -125,7 +125,7 @@ def get_db() -> Generator[Session, None, None]:  # ← ESTA LINHA FOI ALTERADA
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def create_all_tables():
+def criar_todas_as_tabelas():
     """Cria todas as tabelas do banco baseado nos modelos."""
     try:
         from app.models import Base
@@ -141,7 +141,7 @@ def create_all_tables():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_connection():
+def testar_conexao():
     """Testa se a conexão com o banco está funcionando."""
     try:
         connection = engine.connect()
@@ -153,3 +153,12 @@ def test_connection():
     except Exception as e:
         logger.error(f"❌ Falha ao conectar ao banco: {e}")
         return False
+    
+# ═══════════════════════════════════════════════════════════════════════════
+# ATALHOS PARA COMPATIBILIDADE (se houver código antigo)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Se ainda houver imports de get_db() em outro lugar, pode usar:
+get_db = obter_conexao  # Alias para compatibilidade com código antigo
+create_all_tables = criar_todas_as_tabelas
+test_connection = testar_conexao

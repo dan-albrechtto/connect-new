@@ -95,7 +95,7 @@ export const createProblem = async (formData) => {
     //   - categoria_id (número)
     //   - arquivo de foto
     //   - usuario_id (do token)
-    const response = await api.post('/api/problems/create', formData, config);
+    const response = await api.post('/api/solicitacoes', formData, config);
     
     // Retornar resposta do backend
     return response.data;
@@ -115,7 +115,7 @@ export const getProblems = async () => {
   try {
     // Fazer requisição GET para /api/problems/list
     // Retorna array de todos os problemas registrados
-    const response = await api.get('/api/problems/list');
+    const response = await api.get('/api/solicitacoes');
     
     // Retornar array de problemas
     return response.data;
@@ -131,19 +131,19 @@ export const getProblems = async () => {
    ============================================ */
 
 // Função assíncrona para buscar categorias disponíveis
-export const getCategories = async () => {
-  try {
-    // Fazer requisição GET para /api/categories/list
-    // Retorna array com: Coleta de Lixo, Iluminação, Acessibilidade
-    const response = await api.get('/api/categories/list');
+// export const getCategories = async () => {
+//   try {
+//     // Fazer requisição GET para /api/categories/list
+//     // Retorna array com: Coleta de Lixo, Iluminação, Acessibilidade
+//     const response = await api.get('/api/categories/list');
     
-    // Retornar array de categorias
-    return response.data;
-  } catch (error) {
-    // Se erro, extrair mensagem
-    throw new Error(error.response?.data?.detail || 'Erro ao buscar categorias');
-  }
-};
+//     // Retornar array de categorias
+//     return response.data;
+//   } catch (error) {
+//     // Se erro, extrair mensagem
+//     throw new Error(error.response?.data?.detail || 'Erro ao buscar categorias');
+//   }
+// };
 
 /* ============================================
    EXPORTAR INSTÂNCIA DO AXIOS

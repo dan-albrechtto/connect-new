@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 import logging
 from datetime import datetime
 
-from database.connection import get_db
+from database.connection import obter_conexao
 from app.models import Solicitacao, Foto
 from app.utils.security import extrair_user_id_do_token
 from app.utils.image_processor import (
@@ -26,16 +26,16 @@ router = APIRouter()
 # UPLOAD DE FOTO
 # ============================================================================
 
-@router.post("/api/problemas/{problema_id}/fotos", tags=["Fotos"])
+@router.post("/api/solicitacoes/{solicitacao_id}/fotos", tags=["Fotos"])
 async def upload_foto(
-    problema_id: int,
+    solicitacao_id: int,
     arquivo: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
     """
-    Faz upload de foto para problema
-    - Máximo 5 fotos por problema
+    Faz upload de foto para solicitação
+    - Máximo 5 fotos por solicitação
     - Formatos: JPEG, PNG
     - Tamanho: 10 MB
     - EXIF removido automaticamente
@@ -59,16 +59,16 @@ async def upload_foto(
             detail="Token inválido"
         )
     
-    # Verificar problema (usa Solicitacao)
-    problema = db.query(Solicitacao).filter_by(id=problema_id).first()
-    if not problema:
+    # Verificar solicitação (usa Solicitacao)
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Problema não encontrado"
+            detail="Solicitação não encontrada"
         )
     
     # Verificar permissão
-    if problema.usuario_id != user_id:
+    if solicitacao.usuario_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sem permissão para adicionar fotos"
@@ -83,7 +83,7 @@ async def upload_foto(
         )
     
     # Verificar limite (máximo 5)
-    count = db.query(Foto).filter_by(solicitacao_id=problema_id).count()
+    count = db.query(Foto).filter_by(solicitacao_id=solicitacao_id).count()
     if count >= 5:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -91,7 +91,7 @@ async def upload_foto(
         )
     
     # Processar imagem
-    caminho = processar_imagem_upload(arquivo, problema_id)
+    caminho = processar_imagem_upload(arquivo, solicitacao_id)
     if not caminho:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -111,7 +111,7 @@ async def upload_foto(
         proxima_ordem = count + 1
         
         nova_foto = Foto(
-            solicitacao_id=problema_id,
+            solicitacao_id=solicitacao_id,
             caminho_arquivo=caminho,
             tamanho=tamanho_bytes,
             tipo_mime=tipo_mime,
@@ -126,7 +126,7 @@ async def upload_foto(
         
         return {
             "id": nova_foto.id,
-            "solicitacao_id": problema_id,
+            "solicitacao_id": solicitacao_id,
             "caminho_arquivo": caminho,
             "tamanho": tamanho_bytes,
             "tipo_mime": tipo_mime,
@@ -146,23 +146,23 @@ async def upload_foto(
 # LISTAR FOTOS
 # ============================================================================
 
-@router.get("/api/problemas/{problema_id}/fotos", tags=["Fotos"])
+@router.get("/api/solicitacoes/{solicitacao_id}/fotos", tags=["Fotos"])
 def listar_fotos(
-    problema_id: int,
-    db: Session = Depends(get_db)
+    solicitacao_id: int,
+    db: Session = Depends(obter_conexao)
 ):
-    """Lista todas as fotos de um problema"""
+    """Lista todas as fotos de uma solicitação"""
     
-    # Verificar problema
-    problema = db.query(Solicitacao).filter_by(id=problema_id).first()
-    if not problema:
+    # Verificar solicitação
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Problema não encontrado"
+            detail="Solicitação não encontrada"
         )
     
     # Listar fotos ordenadas por ordem
-    fotos = db.query(Foto).filter_by(solicitacao_id=problema_id).order_by(Foto.ordem).all()
+    fotos = db.query(Foto).filter_by(solicitacao_id=solicitacao_id).order_by(Foto.ordem).all()
     
     return fotos
 
@@ -170,11 +170,11 @@ def listar_fotos(
 # DELETAR FOTO
 # ============================================================================
 
-@router.delete("/api/problemas/{problema_id}/fotos/{foto_id}", tags=["Fotos"])
+@router.delete("/api/solicitacoes/{solicitacao_id}/fotos/{foto_id}", tags=["Fotos"])
 def deletar_foto(
-    problema_id: int,
+    solicitacao_id: int,
     foto_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
     """Deleta uma foto"""
@@ -197,23 +197,23 @@ def deletar_foto(
             detail="Token inválido"
         )
     
-    # Verificar problema
-    problema = db.query(Solicitacao).filter_by(id=problema_id).first()
-    if not problema:
+    # Verificar solicitação
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Problema não encontrado"
+            detail="Solicitação não encontrada"
         )
     
     # Verificar permissão
-    if problema.usuario_id != user_id:
+    if solicitacao.usuario_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sem permissão"
         )
     
     # Buscar foto
-    foto = db.query(Foto).filter_by(id=foto_id, solicitacao_id=problema_id).first()
+    foto = db.query(Foto).filter_by(id=foto_id, solicitacao_id=solicitacao_id).first()
     if not foto:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
