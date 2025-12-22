@@ -158,3 +158,13 @@ class RelatorioResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class FotoResponse(BaseModel):
+    id: int
+    problema_id: int
+    caminho: str
+    tamanho_kb: float
+    criado_em: datetime
+    
+    class Config:
+        from_attributes = True

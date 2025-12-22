@@ -41,6 +41,7 @@ bcrypt==4.0.1                       # Criptografia bcrypt
 requests==2.31.0                   # HTTP requests
 aiofiles==23.2.0                   # Arquivos assíncronos
 geopy==2.3.0                       # Geolocalização
+Pillow==12.0.0                     # Processamento de imagens (upload, compressão, EXIF)
 
 # NOTAS:
 # ═══════════════════════════════════════════════════════════════════════════

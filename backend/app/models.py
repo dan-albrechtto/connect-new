@@ -303,6 +303,9 @@ class Foto(Base):
     # CRIADO_EM: data/hora do upload automática
     criado_em = Column(DateTime, default=func.now(), nullable=False)
 
+    def __repr__(self):
+        return f"<Foto id={self.id} problema={self.solicitacao_id}>"
+
 
 # ============================================
 # MODELO: Apoio
