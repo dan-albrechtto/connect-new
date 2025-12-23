@@ -152,31 +152,6 @@ class Categoria(Base):
     criado_em = Column(DateTime, default=func.now(), nullable=False)
 
 
-# ============================================
-# MODELO: Status
-# Tabela: estados possíveis de uma solicitação
-# Armazena os 5 status: Pendente, Análise, Andamento, Resolvido, Cancelado
-# ============================================
-
-class Status(Base):
-    # Nome da tabela no PostgreSQL
-    __tablename__ = "status"
-    
-    # ========== COLUNAS ==========
-    
-    # ID: chave primária
-    id = Column(Integer, primary_key=True, index=True)
-    
-    # NOME: nome do status ("Pendente", "Em análise", "Resolvido", etc)
-    # unique=True garante status sem duplicatas
-    nome = Column(String(50), unique=True, index=True, nullable=False)
-    
-    # DESCRICAO: explicação do que significa este status
-    descricao = Column(String(255))
-    
-    # ATIVO: este status está em uso?
-    ativo = Column(Boolean, default=True, nullable=False)
-
 
 # ============================================
 # MODELO: Solicitacao
@@ -213,13 +188,18 @@ class Solicitacao(Base):
     )
     
     # STATUS_ID: estado atual do problema
-    status_id = Column(
-        Integer,
-        ForeignKey("status.id", ondelete="RESTRICT"),
-        index=True,
+    # status_id = Column(
+    #     Integer,
+    #     ForeignKey("status.id", ondelete="RESTRICT"),
+    #     index=True,
+    #     nullable=False
+    # )
+    status = Column(
+        Enum(StatusSolicitacaoEnum),
+        default=StatusSolicitacaoEnum.PENDENTE,
         nullable=False
     )
-    
+
     # PROTOCOLO: código único para rastreamento (formato: YYYY-00000)
     # Ex: "2025-00001" = primeiro problema de 2025
     # unique=True garante que cada protocolo é único
@@ -304,7 +284,7 @@ class Foto(Base):
     criado_em = Column(DateTime, default=func.now(), nullable=False)
 
     def __repr__(self):
-        return f"<Foto id={self.id} problema={self.solicitacao_id}>"
+        return f"<Foto id={self.id} solicitacao={self.solicitacao_id}>"
 
 
 # ============================================
@@ -424,10 +404,21 @@ class AtualizacaoSolicitacao(Base):
     )
     
     # STATUS_NOVO_ID: novo status após atualização (chave estrangeira)
-    status_novo_id = Column(
-        Integer,
-        ForeignKey("status.id", ondelete="RESTRICT"),
-        index=True,
+    # status_novo_id = Column(
+    #     Integer,
+    #     ForeignKey("status.id", ondelete="RESTRICT"),
+    #     index=True,
+    #     nullable=False
+    # )
+    # Status ANTES (Enum Python):
+    status_anterior = Column(
+        Enum(StatusSolicitacaoEnum),
+        nullable=False
+    )
+    
+    # Status DEPOIS (Enum Python):
+    status_novo = Column(
+        Enum(StatusSolicitacaoEnum),
         nullable=False
     )
     
@@ -531,73 +522,6 @@ class Relatorio(Base):
     
     # CRIADO_EM: data/hora de criação automática
     criado_em = Column(DateTime, default=func.now(), nullable=False)
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# ADIÇÃO AO ARQUIVO: models.py
-# DESCRIÇÃO: Adicionar tabela AuditLog para rastrear ações de admin
-# 
-# INSTRUÇÃO: Cole este código no final de models.py (antes do resumo)
-# ════════════════════════════════════════════════════════════════════════════
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# MODELO: AuditLog
-# Tabela: auditoria de ações de administrador
-# Rastreia quem fez o quê, quando e qual mudança
-# ════════════════════════════════════════════════════════════════════════════
-
-
-class AuditLog(Base):
-    # Nome da tabela no PostgreSQL
-    __tablename__ = "audit_logs"
-    
-    # ========== COLUNAS ==========
-    
-    # ID: chave primária
-    id = Column(Integer, primary_key=True, index=True)
-    
-    # ADMINISTRADOR_ID: qual admin fez a ação? (chave estrangeira)
-    # Quem realizou a ação de auditoria
-    administrador_id = Column(
-        Integer,
-        ForeignKey("usuarios.id", ondelete="SET NULL"),
-        index=True
-    )
-    
-    # ACAO: qual tipo de ação foi realizada?
-    # Enum com ações possíveis: "ATUALIZAR_STATUS", "CRIAR_COMENTARIO", etc
-    acao = Column(String(50), nullable=False)
-    
-    # SOLICITACAO_ID: qual solicitação foi afetada? (chave estrangeira)
-    # Qual problema urbano teve ação
-    solicitacao_id = Column(
-        Integer,
-        ForeignKey("solicitacoes.id", ondelete="CASCADE"),
-        index=True,
-        nullable=False
-    )
-    
-    # STATUS_ANTERIOR: qual era o status antes da mudança?
-    # Ex: "PENDENTE", "EM_ANALISE", "EM_ANDAMENTO"
-    status_anterior = Column(String(50))
-    
-    # STATUS_NOVO: qual é o status depois da mudança?
-    # Ex: "RESOLVIDO", "CANCELADO"
-    status_novo = Column(String(50))
-    
-    # MOTIVO: por que mudou? Justificativa da ação
-    # Ex: "Problema foi reparado pela prefeitura"
-    motivo = Column(Text)
-    
-    # CRIADO_EM: data/hora da ação automática
-    # Quando exatamente isso aconteceu
-    criado_em = Column(DateTime, default=func.now(), index=True, nullable=False)
-
-
-# ════════════════════════════════════════════════════════════════════════════
-# FIM DA ADIÇÃO - Próximo: Adicionar AuditLog ao models.py
-# ═════════════════════════════════════════════════════════
 
 
 # ========== RESUMO DAS TABELAS ==========
