@@ -18,13 +18,16 @@ from app.models import (
     Categoria, 
     Apoio,
     AtualizacaoSolicitacao,
-    StatusSolicitacaoEnum
+    Comentario,
+    TipoUsuarioEnum
 )
 from app.schemas import (
     SolicitacaoCreate, 
     SolicitacaoUpdate,
     SolicitacaoResponse,
-    AtualizacaoSolicitacaoResponse
+    AtualizacaoSolicitacaoResponse,
+    ComentarioCreate,
+    ComentarioResponse
 )
 from app.utils.security import extrair_user_id_do_token
 from database.connection import obter_conexao
@@ -44,15 +47,31 @@ router = APIRouter()
 def gerar_protocolo(db: Session) -> str:
     """
     Gera protocolo único no formato YYYY-00000
-    Conta quantos problemas foram criados este ano
+    Usa MAX do número anterior, não COUNT
+    Assim, mesmo deletando, a sequência continua incrementando
     Retorna string tipo: 2025-00042
     """
+    from sqlalchemy import func, Integer
+    
     ano = datetime.now().year
-    count = db.query(Solicitacao).filter(
-        Solicitacao.criado_em >= datetime(ano, 1, 1)
-    ).count()
-    numero = str(count + 1).zfill(5)
-    return f"{ano}-{numero}"
+    
+    # Buscar o maior número de protocolo do ano atual
+    max_resultado = db.query(
+        func.max(
+            func.cast(
+                func.substring(Solicitacao.protocolo, 6, 5),  # Extrai os 5 últimos caracteres
+                Integer
+            )
+        )
+    ).filter(
+        Solicitacao.protocolo.like(f"{ano}-%")  # Apenas deste ano
+    ).scalar()
+    
+    # Se não houver nenhum, começa em 0, senão pega o máximo
+    numero_maximo = max_resultado if max_resultado else 0
+    proximo_numero = str(numero_maximo + 1).zfill(5)
+    
+    return f"{ano}-{proximo_numero}"
 
 
 # ============================================================================
@@ -71,23 +90,53 @@ def verificar_duplicata(
 ) -> Optional[Solicitacao]:
     """
     Verifica se já existe problema próximo com a mesma categoria
-    dentro do raio especificado (default 50 metros)
-    Retorna a solicitação duplicada ou None
+    dentro do raio especificado (default 50 metros).
+    
+    Usa fórmula de Haversine para cálculo de distância geográfica.
+    Mais precisa que aproximação simples.
+    
+    Args:
+        db: Sessão do banco
+        latitude: Latitude do novo problema (WGS84)
+        longitude: Longitude do novo problema (WGS84)
+        categoria_id: ID da categoria do problema
+        raio_metros: Raio de busca em metros (default 50m)
+    
+    Returns:
+        Solicitacao se encontrar duplicata, None caso contrário
     """
+    from math import radians, sin, cos, sqrt, atan2
+    
     # Buscar todos os problemas da mesma categoria (exceto resolvidos)
     solicitacoes = db.query(Solicitacao).filter(
         Solicitacao.categoria_id == categoria_id,
-        Solicitacao.status != StatusSolicitacaoEnum.RESOLVIDO
+        Solicitacao.status != "RESOLVIDO"
     ).all()
-
-    # Iterar e calcular distância aproximada
+    
+    # Constante: raio da Terra em metros
+    RAIO_TERRA_METROS = 6371000
+    
+    # Iterar e calcular distância usando Haversine
     for solicitacao in solicitacoes:
-        diff_lat = abs(solicitacao.latitude - latitude)
-        diff_lon = abs(solicitacao.longitude - longitude)
-        distancia_km = (diff_lat + diff_lon) * 111  # ~111km por grau
-        if distancia_km * 1000 < raio_metros:  # Converter para metros
+        # Converter para radianos
+        lat1 = radians(solicitacao.latitude)
+        lon1 = radians(solicitacao.longitude)
+        lat2 = radians(latitude)
+        lon2 = radians(longitude)
+        
+        # Diferenças
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        
+        # Fórmula de Haversine
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1-a))
+        distancia_metros = RAIO_TERRA_METROS * c
+        
+        # Se dentro do raio, é duplicata
+        if distancia_metros < raio_metros:
             return solicitacao
-
+    
     return None
 
 
@@ -105,7 +154,7 @@ def verificar_admin(db: Session, user_id: int) -> bool:
     usuario = db.query(Usuario).filter_by(id=user_id).first()
     if not usuario:
         return False
-    return usuario.tipo_usuario == "ADMINISTRADOR"
+    return usuario.tipo_usuario == TipoUsuarioEnum.ADMINISTRADOR
 
 
 # ============================================================================
@@ -168,8 +217,7 @@ def criar_solicitacao(
         logger.info(f"⚠️ Duplicata encontrada para usuário {user_id}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Já existe solicitação similar. ID: {duplicata.id}. Considere apoiar ao invés de criar novo.",
-            headers={"X-Solicitacao-ID": str(duplicata.id)}
+            detail="Já existe uma solicitação similar neste local. Considere apoiar a solicitação existente ao invés de criar uma nova."
         )
 
     # Criar nova solicitação
@@ -181,9 +229,8 @@ def criar_solicitacao(
         endereco=request.endereco,
         categoria_id=request.categoria_id,
         usuario_id=user_id,
-        status=StatusSolicitacaoEnum.PENDENTE,
+        status="PENDENTE",
         contador_apoios=0,
-        prazo_resolucao=request.prazo_resolucao
     )
 
     db.add(nova_solicitacao)
@@ -224,14 +271,14 @@ def listar_solicitacoes(
     
     # Aplicar filtro de status se fornecido
     if status_filtro:
-        try:
-            status_enum = StatusSolicitacaoEnum[status_filtro]
-            query = query.filter_by(status=status_enum)
-        except KeyError:
+        # Validar que o status é válido
+        status_validos = ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
+        if status_filtro not in status_validos:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Status inválido"
             )
+        query = query.filter_by(status=status_filtro)
     
     # Executar query com ordenação e paginação
     solicitacoes = query.order_by(
@@ -265,79 +312,6 @@ def obter_solicitacao(
             detail="Solicitação não encontrada"
         )
 
-    return solicitacao
-
-
-# ============================================================================
-# PUT: Cidadão EDITA sua solicitação (descrição/endereço)
-# ============================================================================
-# Input: SolicitacaoCreate (reutiliza schema com campos editáveis)
-# Apenas o criador pode editar
-# Não pode mudar: categoria, localização, status
-# ============================================================================
-
-@router.put("/api/solicitacoes/{solicitacao_id}", response_model=SolicitacaoResponse, tags=["Solicitações"])
-def atualizar_solicitacao_cidadao(
-    solicitacao_id: int,
-    request: SolicitacaoCreate,
-    db: Session = Depends(obter_conexao),
-    authorization: str = Header(None)
-):
-    """
-    Cidadão EDITA sua solicitação APENAS enquanto em status PENDENTE
-    - Descrição e endereço podem ser corrigidos antes do envio
-    - Após envio (EM_ANALISE+), edição é bloqueada
-    - Use comentários para complementar informações depois
-    """
-    
-    # Extrair token do header Authorization: Bearer <token>
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
-    
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token não fornecido"
-        )
-
-    # Extrair user_id do token JWT
-    user_id = extrair_user_id_do_token(token)
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido"
-        )
-
-    # Buscar solicitação no banco
-    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
-    if not solicitacao:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Solicitação não encontrada"
-        )
-
-    # Verificar se é o criador (ANTES de checar status)
-    if solicitacao.usuario_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Você não tem permissão para editar esta solicitação"
-        )
-
-    # Verificar se ainda está em PENDENTE (DEPOIS de confirmar criador)
-    if solicitacao.status != StatusSolicitacaoEnum.PENDENTE:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Solicitação não pode ser editada. Status atual: {solicitacao.status.value}. Use comentários para adicionar informações."
-        )
-
-    # Atualizar apenas campos permitidos
-    solicitacao.descricao = request.descricao
-    solicitacao.endereco = request.endereco
-    solicitacao.atualizado_em = datetime.now()
-    db.commit()
-    db.refresh(solicitacao)
-    logger.info(f"✅ Solicitação {solicitacao_id} atualizada (ainda em PENDENTE)")
     return solicitacao
 
 
@@ -397,8 +371,10 @@ def atualizar_status_solicitacao(
             detail="Solicitação não encontrada"
         )
 
-    # Extrair valores de status (podem ser enum ou string)
+    # Status já vem como string do banco
     status_anterior = solicitacao.status.value if hasattr(solicitacao.status, 'value') else str(solicitacao.status)
+
+    # Converter o enum do request para string
     status_novo = request.status.value if hasattr(request.status, 'value') else str(request.status)
     
     # Registrar mudança no histórico
@@ -412,7 +388,7 @@ def atualizar_status_solicitacao(
     db.add(atualizacao)
 
     # Atualizar status e data de atualização
-    solicitacao.status = request.status
+    solicitacao.status = status_novo
     solicitacao.atualizado_em = datetime.now()
     
     db.commit()
@@ -592,6 +568,138 @@ def apoiar_solicitacao(
         "message": "Apoio registrado",
         "contador_apoios": solicitacao.contador_apoios
     }
+
+
+# ============================================================================
+# POST: Adicionar COMENTÁRIO em uma solicitação
+# ============================================================================
+
+@router.post("/api/solicitacoes/{solicitacao_id}/comentarios", response_model=ComentarioResponse, tags=["Solicitações"])
+def adicionar_comentario(
+    solicitacao_id: int,
+    request: ComentarioCreate,
+    db: Session = Depends(obter_conexao),
+    authorization: str = Header(None)
+):
+    """Adiciona comentário em uma solicitação"""
+    
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token não fornecido")
+    
+    user_id = extrair_user_id_do_token(token)
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
+    
+    usuario = db.query(Usuario).filter_by(id=user_id).first()
+    if not usuario:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
+    
+    novo_comentario = Comentario(
+        solicitacao_id=solicitacao_id,
+        usuario_id=user_id,
+        texto=request.texto
+    )
+    
+    db.add(novo_comentario)
+    db.commit()
+    db.refresh(novo_comentario)
+    
+    logger.info(f"✅ Comentário adicionado à solicitação {solicitacao_id}")
+    
+    return ComentarioResponse(
+        id=novo_comentario.id,
+        solicitacao_id=novo_comentario.solicitacao_id,
+        usuario_id=novo_comentario.usuario_id,
+        texto=novo_comentario.texto,
+        criado_em=novo_comentario.criado_em,
+        usuario_nome=usuario.nome,
+        usuario_tipo=usuario.tipo_usuario.value if hasattr(usuario.tipo_usuario, 'value') else str(usuario.tipo_usuario)
+    )
+
+
+# ============================================================================
+# GET: Listar COMENTÁRIOS de uma solicitação
+# ============================================================================
+
+@router.get("/api/solicitacoes/{solicitacao_id}/comentarios", response_model=List[ComentarioResponse], tags=["Solicitações"])
+def listar_comentarios(
+    solicitacao_id: int,
+    db: Session = Depends(obter_conexao)
+):
+    """Lista comentários de uma solicitação"""
+    
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
+    
+    comentarios = db.query(Comentario)\
+        .filter(Comentario.solicitacao_id == solicitacao_id)\
+        .order_by(Comentario.criado_em.desc())\
+        .all()
+    
+    resultado = []
+    for comentario in comentarios:
+        usuario = db.query(Usuario).filter_by(id=comentario.usuario_id).first()
+        resultado.append(ComentarioResponse(
+            id=comentario.id,
+            solicitacao_id=comentario.solicitacao_id,
+            usuario_id=comentario.usuario_id,
+            texto=comentario.texto,
+            criado_em=comentario.criado_em,
+            usuario_nome=usuario.nome if usuario else "Deletado",
+            usuario_tipo=usuario.tipo_usuario.value if usuario and hasattr(usuario.tipo_usuario, 'value') else "DESCONHECIDO"
+        ))
+    
+    return resultado
+
+
+# ============================================================================
+# DELETE: Deletar COMENTÁRIO próprio
+# ============================================================================
+
+@router.delete("/api/solicitacoes/{solicitacao_id}/comentarios/{comentario_id}", tags=["Solicitações"])
+def deletar_comentario(
+    solicitacao_id: int,
+    comentario_id: int,
+    db: Session = Depends(obter_conexao),
+    authorization: str = Header(None)
+):
+    """Deleta comentário próprio"""
+    
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token não fornecido")
+    
+    user_id = extrair_user_id_do_token(token)
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
+    
+    comentario = db.query(Comentario).filter_by(id=comentario_id, solicitacao_id=solicitacao_id).first()
+    if not comentario:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comentário não encontrado")
+    
+    if comentario.usuario_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão")
+    
+    db.delete(comentario)
+    db.commit()
+    
+    return {"message": "Comentário deletado"}
 
 
 # ============================================================================

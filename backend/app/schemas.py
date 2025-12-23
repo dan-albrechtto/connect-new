@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_serializer, field_validator
 from datetime import datetime, date
 from enum import Enum as PyEnum
+from typing import Optional
 
 
 # ========== ENUMS ==========
@@ -31,8 +32,8 @@ class UsuarioCreate(BaseModel):
     email: EmailStr = Field(..., description="Email único")
     cpf: str = Field(..., pattern=r"^\d{11}$", description="CPF sem formatação (11 dígitos)")
     senha: str = Field(..., min_length=6, description="Senha mínima 6 caracteres")
-    telefone: str = Field(None, max_length=20, description="Telefone opcional")
-    data_nascimento: date = Field(None, description="Data de nascimento")
+    telefone: Optional[str] = Field(None, max_length=20, description="Telefone opcional")
+    data_nascimento: Optional[date] = Field(None, description="Data de nascimento")
 
 
 class UsuarioResponse(BaseModel):
@@ -42,12 +43,59 @@ class UsuarioResponse(BaseModel):
     email: str
     cpf: str
     tipo_usuario: str
-    telefone: str = None
+    telefone: Optional[str] = None
     ativo: bool
     criado_em: datetime
 
     class Config:
         from_attributes = True
+    
+    @field_serializer('tipo_usuario')
+    def serializar_tipo_usuario(self, value):
+        """Converte Enum TipoUsuarioEnum para string"""
+        if hasattr(value, 'value'):
+            return value.value
+        return str(value)
+    
+class UsuarioUpdate(BaseModel):
+    """Schema para ATUALIZAR dados básicos do usuário"""
+    telefone: Optional[str] = Field(None, max_length=20, description="Telefone opcional")
+    data_nascimento: Optional[date] = Field(None, description="Data de nascimento opcional")
+
+
+class MudarSenhaRequest(BaseModel):
+    """Schema para MUDAR SENHA"""
+    senha_atual: str = Field(..., description="Senha atual para validação")
+    nova_senha: str = Field(..., min_length=8, description="Nova senha")
+    confirmar_senha: str = Field(..., description="Confirmação da nova senha")
+    
+    @field_validator('nova_senha', mode='after')
+    @classmethod
+    def validar_forca_senha(cls, v):
+        if len(v) < 8:
+            raise ValueError('Senha deve ter mínimo 8 caracteres')
+        if not any(c.isupper() for c in v):
+            raise ValueError('Senha deve conter pelo menos 1 MAIÚSCULA')
+        if not any(c.islower() for c in v):
+            raise ValueError('Senha deve conter pelo menos 1 minúscula')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Senha deve conter pelo menos 1 número')
+        caracteres_especiais = '!@#$%^&*'
+        if not any(c in caracteres_especiais for c in v):
+            raise ValueError('Senha deve conter pelo menos 1 caractere especial (!@#$%^&*)')
+        return v
+    
+    @field_validator('confirmar_senha', mode='after')
+    @classmethod
+    def validar_senhas_iguais(cls, v, info):
+        if 'nova_senha' in info.data and v != info.data['nova_senha']:
+            raise ValueError('Senhas não correspondem')
+        return v
+
+
+class MudarSenhaResponse(BaseModel):
+    """Schema para resposta ao mudar senha"""
+    mensagem: str = "Senha alterada com sucesso"
 
 
 # ============================================
@@ -86,7 +134,6 @@ class SolicitacaoCreate(BaseModel):
     latitude: float = Field(..., ge=-90, le=90, description="Coordenada Y (WGS84)")
     longitude: float = Field(..., ge=-180, le=180, description="Coordenada X (WGS84)")
     endereco: str = Field(..., max_length=500, description="Endereço legível")
-    prazo_resolucao: int = Field(None, ge=1, description="Prazo desejado em dias")
 
 
 class SolicitacaoUpdate(BaseModel):
@@ -107,12 +154,19 @@ class SolicitacaoResponse(BaseModel):
     usuario_id: int
     status: str  # "PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"
     contador_apoios: int
-    prazo_resolucao: int = None
+    prazo_resolucao: Optional[int] = None
     criado_em: datetime
     atualizado_em: datetime
 
     class Config:
         from_attributes = True
+    
+    @field_serializer('status')
+    def serializar_status(self, value):
+        """Converte Enum StatusSolicitacaoEnum para string"""
+        if hasattr(value, 'value'):
+            return value.value
+        return str(value)
 
 
 # ============================================
@@ -295,3 +349,26 @@ class ErrorResponse(BaseModel):
     detalhe: str = Field(..., description="Mensagem de erro descritiva")
     codigo: str = Field(None, description="Código do erro (ex: 'VALIDATION_ERROR', 'NOT_FOUND')")
     timestamp: datetime = Field(default_factory=datetime.now, description="Momento em que o erro ocorreu")
+
+
+# ============================================
+# COMENTÁRIOS
+# ============================================
+
+class ComentarioCreate(BaseModel):
+    """Request para criar comentário"""
+    texto: str = Field(..., min_length=1, max_length=500)
+
+
+class ComentarioResponse(BaseModel):
+    """Response com dados do comentário"""
+    id: int
+    solicitacao_id: int
+    usuario_id: int
+    texto: str
+    criado_em: datetime
+    usuario_nome: Optional[str] = None
+    usuario_tipo: Optional[str] = None
+    
+    class Config:
+        from_attributes = True

@@ -5,11 +5,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.models import Usuario
-from app.schemas import UsuarioCreate, UsuarioResponse
-from app.utils.security import (
-    hash_senha, verificar_senha, validar_cpf, criar_access_token
+from app.schemas import (
+    UsuarioCreate, UsuarioResponse, UsuarioUpdate, MudarSenhaRequest, MudarSenhaResponse
 )
-from database.connection import get_db
+from app.utils.security import (
+    hash_senha, verificar_senha, validar_cpf, criar_access_token, extrair_user_id_do_token
+)
+from database.connection import obter_conexao
 from config import TIPO_USUARIO
 from typing import Dict, Any
 import logging
@@ -47,7 +49,7 @@ class TokenResponse(BaseModel):
 @router.post("/auth/login/cidadao", response_model=TokenResponse, tags=["Autenticação"])
 def login_cidadao(
     request: LoginCidadaoRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(obter_conexao)
 ):
     """
     Login de cidadão usando CPF e senha
@@ -73,7 +75,7 @@ def login_cidadao(
         )
     
     # Verifica se é cidadão
-    if usuario.tipo_usuario.value != TIPO_USUARIO["CIDADAO"]:
+    if usuario.tipo_usuario != TipoUsuarioEnum.CIDADAO:
         logger.warning(f"❌ Usuário não é cidadão: {request.cpf}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -112,7 +114,7 @@ def login_cidadao(
 @router.post("/auth/login/admin", response_model=TokenResponse, tags=["Autenticação"])
 def login_admin(
     request: LoginAdminRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(obter_conexao)
 ):
     """
     Login de administrador usando email e senha
@@ -130,7 +132,7 @@ def login_admin(
         )
     
     # Verifica se é admin
-    if usuario.tipo_usuario.value != TIPO_USUARIO["ADMINISTRADOR"]:
+    if usuario.tipo_usuario != TipoUsuarioEnum.ADMINISTRADOR:
         logger.warning(f"❌ Usuário não é admin: {request.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -169,7 +171,7 @@ def login_admin(
 @router.post("/auth/cadastro", response_model=UsuarioResponse, tags=["Autenticação"])
 def cadastro_cidadao(
     request: UsuarioCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(obter_conexao)
 ):
     """
     Cadastro de novo cidadão
@@ -207,6 +209,8 @@ def cadastro_cidadao(
         email=request.email,
         nome=request.nome,
         senha_hash=hash_senha(request.senha),
+        telefone=request.telefone,
+        data_nascimento=request.data_nascimento,
         tipo_usuario=TipoUsuarioEnum.CIDADAO,
         ativo=True
     )
@@ -225,7 +229,7 @@ def cadastro_cidadao(
 
 @router.get("/auth/me", tags=["Autenticação"])
 def get_current_user(
-    db: Session = Depends(get_db),
+    db: Session = Depends(obter_conexao),
     token: str = None
 ):
     """
@@ -258,3 +262,123 @@ def get_current_user(
         )
     
     return usuario
+
+
+
+# ============================================================================
+# ATUALIZAR PERFIL
+# ============================================================================
+
+
+@router.put("/auth/perfil", response_model=UsuarioResponse, tags=["Autenticação"])
+def atualizar_perfil(
+    request: UsuarioUpdate,
+    db: Session = Depends(obter_conexao),
+    token: str = None
+):
+    """
+    Atualiza dados básicos do usuário autenticado
+    
+    Permite editar:
+    - telefone
+    - data_nascimento
+    """
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token não fornecido"
+        )
+    
+    user_id = extrair_user_id_do_token(token)
+    
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido"
+        )
+    
+    usuario = db.query(Usuario).filter_by(id=user_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    if request.telefone is not None:
+        usuario.telefone = request.telefone
+    
+    if request.data_nascimento is not None:
+        usuario.data_nascimento = request.data_nascimento
+    
+    db.commit()
+    db.refresh(usuario)
+    
+    logger.info(f"✅ Perfil atualizado para usuário {user_id}")
+    return usuario
+
+
+# ============================================================================
+# MUDAR SENHA
+# ============================================================================
+
+
+@router.put("/auth/mudar-senha", response_model=MudarSenhaResponse, tags=["Autenticação"])
+def mudar_senha(
+    request: MudarSenhaRequest,
+    db: Session = Depends(obter_conexao),
+    token: str = None
+):
+    """
+    Muda a senha do usuário autenticado
+    
+    Requisitos:
+    - Mínimo 8 caracteres
+    - 1 MAIÚSCULA
+    - 1 minúscula
+    - 1 número
+    - 1 caractere especial (!@#$%^&*)
+    """
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token não fornecido"
+        )
+    
+    user_id = extrair_user_id_do_token(token)
+    
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido"
+        )
+    
+    usuario = db.query(Usuario).filter_by(id=user_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    # Verifica senha atual
+    if not verificar_senha(request.senha_atual, usuario.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Senha atual incorreta"
+        )
+    
+    # Verifica se nova_senha é diferente da atual
+    if verificar_senha(request.nova_senha, usuario.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nova senha não pode ser igual à anterior"
+        )
+    
+    # Atualiza senha
+    usuario.senha_hash = hash_senha(request.nova_senha)
+    
+    db.commit()
+    
+    logger.info(f"✅ Senha alterada com sucesso para usuário {user_id}")
+    return {"mensagem": "Senha alterada com sucesso"}
+
+

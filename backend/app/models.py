@@ -20,6 +20,8 @@ from sqlalchemy import (
     UniqueConstraint, # Restrição: valor único em múltiplas colunas
 )
 
+from sqlalchemy.orm import relationship
+
 # Importar Base para criar modelos
 from sqlalchemy.ext.declarative import declarative_base
 from enum import Enum as PyEnum
@@ -113,6 +115,11 @@ class Usuario(Base):
         nullable=False
     )
 
+        # ========== RELACIONAMENTOS ==========
+    solicitacoes = relationship("Solicitacao", back_populates="usuario")
+    comentarios = relationship("Comentario", back_populates="usuario")
+
+
 
 # ============================================
 # MODELO: Categoria
@@ -195,7 +202,7 @@ class Solicitacao(Base):
     #     nullable=False
     # )
     status = Column(
-        Enum(StatusSolicitacaoEnum),
+        Enum(StatusSolicitacaoEnum, native_enum=False),
         default=StatusSolicitacaoEnum.PENDENTE,
         nullable=False
     )
@@ -237,6 +244,13 @@ class Solicitacao(Base):
         onupdate=func.now(),
         nullable=False
     )
+
+        # ========== RELACIONAMENTOS ==========
+    categoria = relationship("Categoria")
+    usuario = relationship("Usuario", back_populates="solicitacoes")
+    comentarios = relationship("Comentario", back_populates="solicitacao", cascade="all, delete-orphan")
+    atualizacoes = relationship("AtualizacaoSolicitacao", back_populates="solicitacao", cascade="all, delete-orphan")
+
 
 
 # ============================================
@@ -372,6 +386,10 @@ class Comentario(Base):
     # CRIADO_EM: data/hora do comentário automática
     criado_em = Column(DateTime, default=func.now(), nullable=False)
 
+     # ========== RELACIONAMENTOS ==========
+    solicitacao = relationship("Solicitacao", back_populates="comentarios")
+    usuario = relationship("Usuario", back_populates="comentarios")
+
 
 # ============================================
 # MODELO: AtualizacaoSolicitacao
@@ -412,13 +430,13 @@ class AtualizacaoSolicitacao(Base):
     # )
     # Status ANTES (Enum Python):
     status_anterior = Column(
-        Enum(StatusSolicitacaoEnum),
+        Enum(StatusSolicitacaoEnum, native_enum=False),
         nullable=False
     )
     
     # Status DEPOIS (Enum Python):
     status_novo = Column(
-        Enum(StatusSolicitacaoEnum),
+        Enum(StatusSolicitacaoEnum, native_enum=False),
         nullable=False
     )
     
@@ -428,6 +446,9 @@ class AtualizacaoSolicitacao(Base):
     
     # CRIADO_EM: data/hora da atualização automática
     criado_em = Column(DateTime, default=func.now(), nullable=False)
+
+    # ========== RELACIONAMENTOS ==========
+    solicitacao = relationship("Solicitacao", back_populates="atualizacoes")
 
 
 # ============================================
@@ -522,6 +543,7 @@ class Relatorio(Base):
     
     # CRIADO_EM: data/hora de criação automática
     criado_em = Column(DateTime, default=func.now(), nullable=False)
+
 
 
 # ========== RESUMO DAS TABELAS ==========
