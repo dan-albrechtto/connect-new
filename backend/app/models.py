@@ -428,15 +428,15 @@ class AtualizacaoSolicitacao(Base):
     #     index=True,
     #     nullable=False
     # )
-    # Status ANTES (Enum Python):
+    # Status ANTES (texto simples):
     status_anterior = Column(
-        Enum(StatusSolicitacaoEnum, native_enum=False),
+        String(50),
         nullable=False
     )
     
-    # Status DEPOIS (Enum Python):
+    # Status DEPOIS (texto simples):
     status_novo = Column(
-        Enum(StatusSolicitacaoEnum, native_enum=False),
+        String(50),
         nullable=False
     )
     

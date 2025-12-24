@@ -19,7 +19,8 @@ from app.models import (
     Apoio,
     AtualizacaoSolicitacao,
     Comentario,
-    TipoUsuarioEnum
+    TipoUsuarioEnum,
+    StatusSolicitacaoEnum
 )
 from app.schemas import (
     SolicitacaoCreate, 
@@ -371,30 +372,31 @@ def atualizar_status_solicitacao(
             detail="Solicitação não encontrada"
         )
 
-    # Status já vem como string do banco
-    status_anterior = solicitacao.status.value if hasattr(solicitacao.status, 'value') else str(solicitacao.status)
+    # Status anterior (já vem como string do banco - ENUM)
+    status_anterior = solicitacao.status.name
 
-    # Converter o enum do request para string
-    status_novo = request.status.value if hasattr(request.status, 'value') else str(request.status)
-    
-    # Registrar mudança no histórico
+    # Novo status (vem como string do request)
+    status_novo_str = request.status
+
+    # Registrar no histórico
     atualizacao = AtualizacaoSolicitacao(
         solicitacao_id=solicitacao_id,
         administrador_id=admin_id,
         status_anterior=status_anterior,
-        status_novo=status_novo,
+        status_novo=status_novo_str,
         descricao=request.descricao
     )
     db.add(atualizacao)
 
+
     # Atualizar status e data de atualização
-    solicitacao.status = status_novo
+    solicitacao.status = StatusSolicitacaoEnum[request.status]
     solicitacao.atualizado_em = datetime.now()
     
     db.commit()
     db.refresh(solicitacao)
     
-    logger.info(f"✅ Status atualizado para {status_novo}")
+    logger.info(f"✅ Status atualizado para {status_novo_str}")
     return solicitacao
 
 
