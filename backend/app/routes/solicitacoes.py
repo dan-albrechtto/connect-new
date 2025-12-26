@@ -18,7 +18,6 @@ from app.models import (
     Categoria, 
     Apoio,
     AtualizacaoSolicitacao,
-    Comentario,
     TipoUsuarioEnum,
     StatusSolicitacaoEnum
 )
@@ -572,136 +571,136 @@ def apoiar_solicitacao(
     }
 
 
-# ============================================================================
-# POST: Adicionar COMENTÁRIO em uma solicitação
-# ============================================================================
+# # ============================================================================
+# # POST: Adicionar COMENTÁRIO em uma solicitação
+# # ============================================================================
 
-@router.post("/api/solicitacoes/{solicitacao_id}/comentarios", response_model=ComentarioResponse, tags=["Solicitações"])
-def adicionar_comentario(
-    solicitacao_id: int,
-    request: ComentarioCreate,
-    db: Session = Depends(obter_conexao),
-    authorization: str = Header(None)
-):
-    """Adiciona comentário em uma solicitação"""
+# @router.post("/api/solicitacoes/{solicitacao_id}/comentarios", response_model=ComentarioResponse, tags=["Solicitações"])
+# def adicionar_comentario(
+#     solicitacao_id: int,
+#     request: ComentarioCreate,
+#     db: Session = Depends(obter_conexao),
+#     authorization: str = Header(None)
+# ):
+#     """Adiciona comentário em uma solicitação"""
     
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
+#     token = None
+#     if authorization and authorization.startswith("Bearer "):
+#         token = authorization[7:]
     
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token não fornecido")
+#     if not token:
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token não fornecido")
     
-    user_id = extrair_user_id_do_token(token)
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+#     user_id = extrair_user_id_do_token(token)
+#     if not user_id:
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
     
-    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
-    if not solicitacao:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
+#     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+#     if not solicitacao:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
     
-    usuario = db.query(Usuario).filter_by(id=user_id).first()
-    if not usuario:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
+#     usuario = db.query(Usuario).filter_by(id=user_id).first()
+#     if not usuario:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
     
-    novo_comentario = Comentario(
-        solicitacao_id=solicitacao_id,
-        usuario_id=user_id,
-        texto=request.texto
-    )
+#     novo_comentario = Comentario(
+#         solicitacao_id=solicitacao_id,
+#         usuario_id=user_id,
+#         texto=request.texto
+#     )
     
-    db.add(novo_comentario)
-    db.commit()
-    db.refresh(novo_comentario)
+#     db.add(novo_comentario)
+#     db.commit()
+#     db.refresh(novo_comentario)
     
-    logger.info(f"✅ Comentário adicionado à solicitação {solicitacao_id}")
+#     logger.info(f"✅ Comentário adicionado à solicitação {solicitacao_id}")
     
-    return ComentarioResponse(
-        id=novo_comentario.id,
-        solicitacao_id=novo_comentario.solicitacao_id,
-        usuario_id=novo_comentario.usuario_id,
-        texto=novo_comentario.texto,
-        criado_em=novo_comentario.criado_em,
-        usuario_nome=usuario.nome,
-        usuario_tipo=usuario.tipo_usuario.value if hasattr(usuario.tipo_usuario, 'value') else str(usuario.tipo_usuario)
-    )
-
-
-# ============================================================================
-# GET: Listar COMENTÁRIOS de uma solicitação
-# ============================================================================
-
-@router.get("/api/solicitacoes/{solicitacao_id}/comentarios", response_model=List[ComentarioResponse], tags=["Solicitações"])
-def listar_comentarios(
-    solicitacao_id: int,
-    db: Session = Depends(obter_conexao)
-):
-    """Lista comentários de uma solicitação"""
-    
-    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
-    if not solicitacao:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
-    
-    comentarios = db.query(Comentario)\
-        .filter(Comentario.solicitacao_id == solicitacao_id)\
-        .order_by(Comentario.criado_em.desc())\
-        .all()
-    
-    resultado = []
-    for comentario in comentarios:
-        usuario = db.query(Usuario).filter_by(id=comentario.usuario_id).first()
-        resultado.append(ComentarioResponse(
-            id=comentario.id,
-            solicitacao_id=comentario.solicitacao_id,
-            usuario_id=comentario.usuario_id,
-            texto=comentario.texto,
-            criado_em=comentario.criado_em,
-            usuario_nome=usuario.nome if usuario else "Deletado",
-            usuario_tipo=usuario.tipo_usuario.value if usuario and hasattr(usuario.tipo_usuario, 'value') else "DESCONHECIDO"
-        ))
-    
-    return resultado
+#     return ComentarioResponse(
+#         id=novo_comentario.id,
+#         solicitacao_id=novo_comentario.solicitacao_id,
+#         usuario_id=novo_comentario.usuario_id,
+#         texto=novo_comentario.texto,
+#         criado_em=novo_comentario.criado_em,
+#         usuario_nome=usuario.nome,
+#         usuario_tipo=usuario.tipo_usuario.value if hasattr(usuario.tipo_usuario, 'value') else str(usuario.tipo_usuario)
+#     )
 
 
-# ============================================================================
-# DELETE: Deletar COMENTÁRIO próprio
-# ============================================================================
+# # ============================================================================
+# # GET: Listar COMENTÁRIOS de uma solicitação
+# # ============================================================================
 
-@router.delete("/api/solicitacoes/{solicitacao_id}/comentarios/{comentario_id}", tags=["Solicitações"])
-def deletar_comentario(
-    solicitacao_id: int,
-    comentario_id: int,
-    db: Session = Depends(obter_conexao),
-    authorization: str = Header(None)
-):
-    """Deleta comentário próprio"""
+# @router.get("/api/solicitacoes/{solicitacao_id}/comentarios", response_model=List[ComentarioResponse], tags=["Solicitações"])
+# def listar_comentarios(
+#     solicitacao_id: int,
+#     db: Session = Depends(obter_conexao)
+# ):
+#     """Lista comentários de uma solicitação"""
     
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
+#     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+#     if not solicitacao:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
     
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token não fornecido")
+#     comentarios = db.query(Comentario)\
+#         .filter(Comentario.solicitacao_id == solicitacao_id)\
+#         .order_by(Comentario.criado_em.desc())\
+#         .all()
     
-    user_id = extrair_user_id_do_token(token)
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+#     resultado = []
+#     for comentario in comentarios:
+#         usuario = db.query(Usuario).filter_by(id=comentario.usuario_id).first()
+#         resultado.append(ComentarioResponse(
+#             id=comentario.id,
+#             solicitacao_id=comentario.solicitacao_id,
+#             usuario_id=comentario.usuario_id,
+#             texto=comentario.texto,
+#             criado_em=comentario.criado_em,
+#             usuario_nome=usuario.nome if usuario else "Deletado",
+#             usuario_tipo=usuario.tipo_usuario.value if usuario and hasattr(usuario.tipo_usuario, 'value') else "DESCONHECIDO"
+#         ))
     
-    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
-    if not solicitacao:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
+#     return resultado
+
+
+# # ============================================================================
+# # DELETE: Deletar COMENTÁRIO próprio
+# # ============================================================================
+
+# @router.delete("/api/solicitacoes/{solicitacao_id}/comentarios/{comentario_id}", tags=["Solicitações"])
+# def deletar_comentario(
+#     solicitacao_id: int,
+#     comentario_id: int,
+#     db: Session = Depends(obter_conexao),
+#     authorization: str = Header(None)
+# ):
+#     """Deleta comentário próprio"""
     
-    comentario = db.query(Comentario).filter_by(id=comentario_id, solicitacao_id=solicitacao_id).first()
-    if not comentario:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comentário não encontrado")
+#     token = None
+#     if authorization and authorization.startswith("Bearer "):
+#         token = authorization[7:]
     
-    if comentario.usuario_id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão")
+#     if not token:
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token não fornecido")
     
-    db.delete(comentario)
-    db.commit()
+#     user_id = extrair_user_id_do_token(token)
+#     if not user_id:
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
     
-    return {"message": "Comentário deletado"}
+#     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+#     if not solicitacao:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada")
+    
+#     comentario = db.query(Comentario).filter_by(id=comentario_id, solicitacao_id=solicitacao_id).first()
+#     if not comentario:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comentário não encontrado")
+    
+#     if comentario.usuario_id != user_id:
+#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão")
+    
+#     db.delete(comentario)
+#     db.commit()
+    
+#     return {"message": "Comentário deletado"}
 
 
 # ============================================================================

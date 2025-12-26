@@ -27,10 +27,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from enum import Enum as PyEnum
 from datetime import datetime
 
-# ========== BASE DECLARATIVA ==========
-# Base = classe base para todos os modelos
-# Todos os modelos herdam de Base para serem tabelas no banco
-Base = declarative_base()
+from database.connection import Base
 
 
 # ========== ENUMS PYTHON ==========
@@ -116,8 +113,8 @@ class Usuario(Base):
     )
 
         # ========== RELACIONAMENTOS ==========
-    solicitacoes = relationship("Solicitacao", back_populates="usuario")
-    comentarios = relationship("Comentario", back_populates="usuario")
+    # solicitacoes = relationship("Solicitacao", back_populates="usuario")
+    # comentarios = relationship("Comentario", back_populates="usuario")
 
 
 
@@ -246,10 +243,10 @@ class Solicitacao(Base):
     )
 
         # ========== RELACIONAMENTOS ==========
-    categoria = relationship("Categoria")
-    usuario = relationship("Usuario", back_populates="solicitacoes")
-    comentarios = relationship("Comentario", back_populates="solicitacao", cascade="all, delete-orphan")
-    atualizacoes = relationship("AtualizacaoSolicitacao", back_populates="solicitacao", cascade="all, delete-orphan")
+    # categoria = relationship("Categoria")
+    # usuario = relationship("Usuario", back_populates="solicitacoes")
+    # # comentarios = relationship("Comentario", back_populates="solicitacao", cascade="all, delete-orphan")
+    # atualizacoes = relationship("AtualizacaoSolicitacao", back_populates="solicitacao", cascade="all, delete-orphan")
 
 
 
@@ -387,8 +384,8 @@ class Comentario(Base):
     criado_em = Column(DateTime, default=func.now(), nullable=False)
 
      # ========== RELACIONAMENTOS ==========
-    solicitacao = relationship("Solicitacao", back_populates="comentarios")
-    usuario = relationship("Usuario", back_populates="comentarios")
+    # solicitacao = relationship("Solicitacao", back_populates="comentarios")
+    # usuario = relationship("Usuario", back_populates="comentarios")
 
 
 # ============================================
@@ -448,7 +445,7 @@ class AtualizacaoSolicitacao(Base):
     criado_em = Column(DateTime, default=func.now(), nullable=False)
 
     # ========== RELACIONAMENTOS ==========
-    solicitacao = relationship("Solicitacao", back_populates="atualizacoes")
+    # solicitacao = relationship("Solicitacao", back_populates="atualizacoes")
 
 
 # ============================================
@@ -458,7 +455,12 @@ class AtualizacaoSolicitacao(Base):
 # ============================================
 
 class Avaliacao(Base):
-    # Nome da tabela no PostgreSQL
+    """
+    Modelo de Avaliação de Solicitação
+    
+    Cidadão avalia uma solicitação resolvida/cancelada.
+    Contém nota (1-5), confirmação se foi realmente resolvido, e comentário.
+    """
     __tablename__ = "avaliacoes"
     
     # ========== COLUNAS ==========
@@ -470,26 +472,38 @@ class Avaliacao(Base):
     solicitacao_id = Column(
         Integer,
         ForeignKey("solicitacoes.id", ondelete="CASCADE"),
-        unique=True,  # Só uma avaliação por solicitação
-        nullable=False
+        nullable=False,
+        index=True
     )
     
     # USUARIO_ID: quem avaliou? (chave estrangeira)
     usuario_id = Column(
         Integer,
         ForeignKey("usuarios.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
+        index=True
     )
     
     # NOTA: avaliação de 1 a 5 estrelas
     # 1 = muito ruim, 5 = excelente
     nota = Column(Integer, nullable=False)  # Validar 1-5 na aplicação
     
-    # COMENTARIO: feedback do cidadão sobre a solução
-    comentario = Column(Text)
+    # PROBLEMA_RESOLVIDO: cidadão confirma se problema foi realmente resolvido
+    # NOT NULL DEFAULT FALSE força resposta obrigatória
+    problema_resolvido = Column(Boolean, nullable=False, default=False)
+    
+    # COMENTARIO: feedback do cidadão sobre a solução (opcional, máx 500 caracteres)
+    comentario = Column(String(500))
     
     # CRIADO_EM: data/hora da avaliação automática
-    criado_em = Column(DateTime, default=func.now(), nullable=False)
+    criado_em = Column(DateTime, default=func.now(), nullable=False, index=True)
+    
+    # ========== RELACIONAMENTOS ==========
+    # solicitacao = relationship("Solicitacao", back_populates="avaliacao")
+    # usuario = relationship("Usuario")
+    
+    def __repr__(self):
+        return f"<Avaliacao(id={self.id}, solicitacao_id={self.solicitacao_id}, nota={self.nota})>"
 
 
 # ============================================

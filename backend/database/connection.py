@@ -11,12 +11,14 @@ from typing import Generator  # ← ADICIONE ESTA LINHA (foi adicionada)
 import os
 from dotenv import load_dotenv
 import logging
+from sqlalchemy.orm import declarative_base
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. CONFIGURAÇÃO DE LOGGING
 # ═══════════════════════════════════════════════════════════════════════════
 
+Base = declarative_base()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -128,7 +130,6 @@ def obter_conexao() -> Generator[Session, None, None]:  # ← ESTA LINHA FOI ALT
 def criar_todas_as_tabelas():
     """Cria todas as tabelas do banco baseado nos modelos."""
     try:
-        from app.models import Base
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Tabelas criadas/verificadas com sucesso!")
     except Exception as e:

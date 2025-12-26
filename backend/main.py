@@ -13,6 +13,7 @@ from fastapi.openapi.utils import get_openapi
 from database.connection import criar_todas_as_tabelas, testar_conexao
 from config import APP_NAME, APP_VERSION, DEBUG
 import logging
+from app.models import Base, Usuario, Solicitacao, Avaliacao, Categoria
 
 logger = logging.getLogger(__name__)
 

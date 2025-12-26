@@ -213,28 +213,28 @@ class ApoioResponse(BaseModel):
         from_attributes = True
 
 
-# ============================================
-# COMENTARIO
-# ============================================
+# # ============================================
+# # COMENTARIO
+# # ============================================
 
-class ComentarioCreate(BaseModel):
-    """Schema para CRIAR comentário (input do cidadão/admin)"""
-    solicitacao_id: int = Field(..., description="ID da solicitação")
-    texto: str = Field(..., min_length=1, max_length=5000, description="Conteúdo do comentário")
-    interno: bool = Field(False, description="Apenas admin e criador veem? (default: false = público)")
+# class ComentarioCreate(BaseModel):
+#     """Schema para CRIAR comentário (input do cidadão/admin)"""
+#     solicitacao_id: int = Field(..., description="ID da solicitação")
+#     texto: str = Field(..., min_length=1, max_length=5000, description="Conteúdo do comentário")
+#     interno: bool = Field(False, description="Apenas admin e criador veem? (default: false = público)")
 
 
-class ComentarioResponse(BaseModel):
-    """Schema para RETORNAR comentário (output da API)"""
-    id: int
-    solicitacao_id: int
-    usuario_id: int
-    texto: str
-    interno: bool
-    criado_em: datetime
+# class ComentarioResponse(BaseModel):
+#     """Schema para RETORNAR comentário (output da API)"""
+#     id: int
+#     solicitacao_id: int
+#     usuario_id: int
+#     texto: str
+#     interno: bool
+#     criado_em: datetime
 
-    class Config:
-        from_attributes = True
+#     class Config:
+#         from_attributes = True
 
 
 # ============================================
