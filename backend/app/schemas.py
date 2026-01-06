@@ -274,9 +274,9 @@ class AtualizacaoSolicitacaoResponse(BaseModel):
 
 class AvaliacaoCreate(BaseModel):
     """Schema para CRIAR avaliação (input do cidadão após resolução)"""
-    solicitacao_id: int = Field(..., description="ID da solicitação resolvida")
-    nota: int = Field(..., ge=1, le=5, description="Nota de satisfação de 1 a 5")
-    comentario: str = Field(None, max_length=2000, description="Feedback textual opcional")
+    nota: int = Field(..., ge=1, le=5, description="Nota de satisfação de 1 a 5 estrelas")
+    problema_resolvido: bool = Field(..., description="Problema foi realmente resolvido?")
+    comentario: Optional[str] = Field(None, max_length=500, description="Feedback textual opcional")
 
 
 class AvaliacaoResponse(BaseModel):
@@ -285,11 +285,13 @@ class AvaliacaoResponse(BaseModel):
     solicitacao_id: int
     usuario_id: int
     nota: int
-    comentario: str = None
+    problema_resolvido: bool
+    comentario: Optional[str] = None
     criado_em: datetime
 
     class Config:
         from_attributes = True
+
 
 
 # ============================================

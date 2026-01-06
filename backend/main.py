@@ -147,6 +147,9 @@ app.include_router(solicitacoes.router)
 from app.routes import fotos
 app.include_router(fotos.router)
 
+from app.routes import avaliacoes
+app.include_router(avaliacoes.router)
+
 # Exemplo de como adicionar mais rotas no futuro:
 # from app.routes import fotos
 # app.include_router(fotos.router, prefix="/api", tags=["Fotos"])
