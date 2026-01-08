@@ -177,6 +177,4 @@ uploads/
 # ============================================================================
 # STORAGE - NUNCA fazer commit de uploads
 # ============================================================================
-storage/fotos/
-storage/fotos/*
-!storage/fotos/.gitkeep
+/storage/
