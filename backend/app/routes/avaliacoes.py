@@ -236,156 +236,156 @@ def deletar_minha_avaliacao(
 # GET: Listar TODAS as avaliações (admin)
 # ============================================================================
 
-@router.get(
-    "/api/admin/avaliacoes",
-    response_model=dict,
-    tags=["Avaliações - Admin"],
-    summary="Listar avaliações (admin)"
-)
-def listar_avaliacoes_admin(
-    skip: int = 0,
-    limit: int = 50,
-    db: Session = Depends(obter_conexao),
-    authorization: str = Header(None)
-):
-    """
-    Admin lista todas as avaliações do sistema
+# @router.get(
+#     "/api/admin/avaliacoes",
+#     response_model=dict,
+#     tags=["Avaliações - Admin"],
+#     summary="Listar avaliações (admin)"
+# )
+# def listar_avaliacoes_admin(
+#     skip: int = 0,
+#     limit: int = 50,
+#     db: Session = Depends(obter_conexao),
+#     authorization: str = Header(None)
+# ):
+#     """
+#     Admin lista todas as avaliações do sistema
     
-    - Requer autenticação de admin
-    - Paginação: skip/limit
-    - Ordena por data (mais recentes primeiro)
-    """
+#     - Requer autenticação de admin
+#     - Paginação: skip/limit
+#     - Ordena por data (mais recentes primeiro)
+#     """
     
-    # Extrair token
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
+#     # Extrair token
+#     token = None
+#     if authorization and authorization.startswith("Bearer "):
+#         token = authorization[7:]
     
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token não fornecido"
-        )
+#     if not token:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token não fornecido"
+#         )
     
-    admin_id = extrair_user_id_do_token(token)
-    if not admin_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido"
-        )
+#     admin_id = extrair_user_id_do_token(token)
+#     if not admin_id:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token inválido"
+#         )
     
-    # Verificar se é admin
-    usuario = db.query(Usuario).filter_by(id=admin_id).first()
-    if not usuario or usuario.tipo_usuario.name != "ADMINISTRADOR":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Apenas administradores"
-        )
+#     # Verificar se é admin
+#     usuario = db.query(Usuario).filter_by(id=admin_id).first()
+#     if not usuario or usuario.tipo_usuario.name != "ADMINISTRADOR":
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="Apenas administradores"
+#         )
     
-    # Buscar avaliações
-    avaliacoes = db.query(Avaliacao).order_by(
-        Avaliacao.criado_em.desc()
-    ).offset(skip).limit(limit).all()
+#     # Buscar avaliações
+#     avaliacoes = db.query(Avaliacao).order_by(
+#         Avaliacao.criado_em.desc()
+#     ).offset(skip).limit(limit).all()
     
-    total = db.query(Avaliacao).count()
+#     total = db.query(Avaliacao).count()
     
-    return {
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-        "avaliacoes": [AvaliacaoResponse.from_orm(a) for a in avaliacoes]
-    }
+#     return {
+#         "total": total,
+#         "skip": skip,
+#         "limit": limit,
+#         "avaliacoes": [AvaliacaoResponse.from_orm(a) for a in avaliacoes]
+#     }
 
 
 # ============================================================================
 # GET: Obter ESTATÍSTICAS de avaliações (admin)
 # ============================================================================
 
-@router.get(
-    "/api/admin/avaliacoes/estatisticas",
-    tags=["Avaliações - Admin"],
-    summary="Estatísticas de avaliações"
-)
-def obter_estatisticas_avaliacoes(
-    db: Session = Depends(obter_conexao),
-    authorization: str = Header(None)
-):
-    """
-    Retorna estatísticas agregadas para o dashboard admin
+# @router.get(
+#     "/api/admin/avaliacoes/estatisticas",
+#     tags=["Avaliações - Admin"],
+#     summary="Estatísticas de avaliações"
+# )
+# def obter_estatisticas_avaliacoes(
+#     db: Session = Depends(obter_conexao),
+#     authorization: str = Header(None)
+# ):
+#     """
+#     Retorna estatísticas agregadas para o dashboard admin
     
-    - Total de avaliações
-    - Média de notas
-    - Distribuição de notas (1-5)
-    - Percentual de problemas resolvidos vs não resolvidos
-    - Total de comentários
-    """
+#     - Total de avaliações
+#     - Média de notas
+#     - Distribuição de notas (1-5)
+#     - Percentual de problemas resolvidos vs não resolvidos
+#     - Total de comentários
+#     """
     
-    # Extrair token
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
+#     # Extrair token
+#     token = None
+#     if authorization and authorization.startswith("Bearer "):
+#         token = authorization[7:]
     
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token não fornecido"
-        )
+#     if not token:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token não fornecido"
+#         )
     
-    admin_id = extrair_user_id_do_token(token)
-    if not admin_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido"
-        )
+#     admin_id = extrair_user_id_do_token(token)
+#     if not admin_id:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token inválido"
+#         )
     
-    # Verificar se é admin
-    usuario = db.query(Usuario).filter_by(id=admin_id).first()
-    if not usuario or usuario.tipo_usuario.name != "ADMINISTRADOR":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Apenas administradores"
-        )
+#     # Verificar se é admin
+#     usuario = db.query(Usuario).filter_by(id=admin_id).first()
+#     if not usuario or usuario.tipo_usuario.name != "ADMINISTRADOR":
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="Apenas administradores"
+#         )
     
-    # Calcular estatísticas
-    from sqlalchemy import func
+#     # Calcular estatísticas
+#     from sqlalchemy import func
     
-    total = db.query(func.count(Avaliacao.id)).scalar()
+#     total = db.query(func.count(Avaliacao.id)).scalar()
     
-    if total == 0:
-        return {
-            "total_avaliacoes": 0,
-            "media_nota": 0.0,
-            "distribuicao_notas": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
-            "percentual_problema_resolvido": 0.0,
-            "percentual_problema_nao_resolvido": 0.0,
-            "total_comentarios": 0
-        }
+#     if total == 0:
+#         return {
+#             "total_avaliacoes": 0,
+#             "media_nota": 0.0,
+#             "distribuicao_notas": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
+#             "percentual_problema_resolvido": 0.0,
+#             "percentual_problema_nao_resolvido": 0.0,
+#             "total_comentarios": 0
+#         }
     
-    # Média de notas
-    media_nota = db.query(func.avg(Avaliacao.nota)).scalar() or 0.0
+#     # Média de notas
+#     media_nota = db.query(func.avg(Avaliacao.nota)).scalar() or 0.0
     
-    # Distribuição de notas
-    distribuicao = {}
-    for nota in range(1, 6):
-        count = db.query(func.count(Avaliacao.id)).filter(Avaliacao.nota == nota).scalar()
-        distribuicao[str(nota)] = count
+#     # Distribuição de notas
+#     distribuicao = {}
+#     for nota in range(1, 6):
+#         count = db.query(func.count(Avaliacao.id)).filter(Avaliacao.nota == nota).scalar()
+#         distribuicao[str(nota)] = count
     
-    # Percentual resolvido
-    resolvido_count = db.query(func.count(Avaliacao.id)).filter(
-        Avaliacao.problema_resolvido == True
-    ).scalar()
-    percentual_resolvido = (resolvido_count / total) * 100
+#     # Percentual resolvido
+#     resolvido_count = db.query(func.count(Avaliacao.id)).filter(
+#         Avaliacao.problema_resolvido == True
+#     ).scalar()
+#     percentual_resolvido = (resolvido_count / total) * 100
     
-    # Total de comentários
-    total_comentarios = db.query(func.count(Avaliacao.id)).filter(
-        Avaliacao.comentario.isnot(None)
-    ).scalar()
+#     # Total de comentários
+#     total_comentarios = db.query(func.count(Avaliacao.id)).filter(
+#         Avaliacao.comentario.isnot(None)
+#     ).scalar()
     
-    return {
-        "total_avaliacoes": total,
-        "media_nota": round(media_nota, 2),
-        "distribuicao_notas": distribuicao,
-        "percentual_problema_resolvido": round(percentual_resolvido, 2),
-        "percentual_problema_nao_resolvido": round(100 - percentual_resolvido, 2),
-        "total_comentarios": total_comentarios
-    }
+#     return {
+#         "total_avaliacoes": total,
+#         "media_nota": round(media_nota, 2),
+#         "distribuicao_notas": distribuicao,
+#         "percentual_problema_resolvido": round(percentual_resolvido, 2),
+#         "percentual_problema_nao_resolvido": round(100 - percentual_resolvido, 2),
+#         "total_comentarios": total_comentarios
+#     }

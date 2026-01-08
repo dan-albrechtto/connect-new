@@ -287,6 +287,54 @@ def listar_solicitacoes(
     
     return solicitacoes
 
+@router.get(
+    "/api/solicitacoes/minhas",
+    response_model=dict,
+    tags=["Solicitações"],
+    summary="Listar minhas solicitações"
+)
+def listar_minhas_solicitacoes(
+    db: Session = Depends(obter_conexao),
+    authorization: str = Header(None)
+):
+    """
+    Cidadão lista TODAS as suas solicitações (criadas por ele)
+    
+    - Requer autenticação (token JWT)
+    - Retorna solicitações em qualquer status (ativa, resolvida, cancelada)
+    - Ordena por data (mais recentes primeiro)
+    - Inclui histórico e avaliações
+    """
+    
+    # Extrair token
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token não fornecido"
+        )
+    
+    usuario_id = extrair_user_id_do_token(token)
+    if not usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido"
+        )
+    
+    # Buscar todas as solicitações do usuário
+    minhas_solicitacoes = db.query(Solicitacao).filter(
+        Solicitacao.usuario_id == usuario_id
+    ).order_by(Solicitacao.criado_em.desc()).all()
+    
+    return {
+        "total": len(minhas_solicitacoes),
+        "solicitacoes": [SolicitacaoResponse.from_orm(s) for s in minhas_solicitacoes]
+    }
+
+
 
 # ============================================================================
 # GET: Obter UMA solicitação por ID
@@ -315,29 +363,27 @@ def obter_solicitacao(
     return solicitacao
 
 
-# ============================================================================
-# PUT: Admin ATUALIZA STATUS da solicitação
-# ============================================================================
-# Input: SolicitacaoUpdate (APENAS status e descricao)
-# Apenas admin pode fazer isso
-# Registra automaticamente no histórico (AtualizacaoSolicitacao)
-# ============================================================================
-
-@router.put("/api/solicitacoes/{solicitacao_id}/status", response_model=SolicitacaoResponse, tags=["Solicitações"])
-def atualizar_status_solicitacao(
+@router.get(
+    "/api/solicitacoes/{solicitacao_id}/historico",
+    response_model=List[AtualizacaoSolicitacaoResponse],
+    tags=["Solicitações"],
+    summary="Ver histórico de mudanças"
+)
+def obter_historico_cidadao(
     solicitacao_id: int,
-    request: SolicitacaoUpdate,
     db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
     """
-    ADMIN: Atualiza o STATUS de uma solicitação
-    - Input: APENAS status e descricao (via SolicitacaoUpdate)
-    - Requer autenticação de admin
-    - Registra automaticamente mudança no histórico
+    Cidadão vê histórico de mudanças de sua própria solicitação
+    
+    - Mostra quando status foi alterado
+    - Mostra comentário/descrição de cada mudança
+    - Ordenado por data (mais recentes primeiro)
+    - Apenas criador da solicitação pode ver
     """
     
-    # Extrair token do header
+    # Extrair token
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
@@ -347,56 +393,120 @@ def atualizar_status_solicitacao(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token não fornecido"
         )
-
-    # Extrair user_id do token
-    admin_id = extrair_user_id_do_token(token)
-    if not admin_id:
+    
+    usuario_id = extrair_user_id_do_token(token)
+    if not usuario_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido"
         )
-
-    # Verificar se é admin
-    if not verificar_admin(db, admin_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Apenas administradores"
-        )
-
-    # Buscar solicitação
+    
+    # Validar solicitação existe
     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
     if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Solicitação não encontrada"
         )
-
-    # Status anterior (já vem como string do banco - ENUM)
-    status_anterior = solicitacao.status.name
-
-    # Novo status (vem como string do request)
-    status_novo_str = request.status
-
-    # Registrar no histórico
-    atualizacao = AtualizacaoSolicitacao(
-        solicitacao_id=solicitacao_id,
-        administrador_id=admin_id,
-        status_anterior=status_anterior,
-        status_novo=status_novo_str,
-        descricao=request.descricao
-    )
-    db.add(atualizacao)
-
-
-    # Atualizar status e data de atualização
-    solicitacao.status = StatusSolicitacaoEnum[request.status]
-    solicitacao.atualizado_em = datetime.now()
     
-    db.commit()
-    db.refresh(solicitacao)
+    # Validar se é criador
+    if solicitacao.usuario_id != usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas criador da solicitação pode ver histórico"
+        )
     
-    logger.info(f"✅ Status atualizado para {status_novo_str}")
-    return solicitacao
+    # Buscar histórico
+    historico = db.query(AtualizacaoSolicitacao).filter(
+        AtualizacaoSolicitacao.solicitacao_id == solicitacao_id
+    ).order_by(AtualizacaoSolicitacao.criado_em.desc()).all()
+    
+    return historico
+
+
+
+# ============================================================================
+# PUT: Admin ATUALIZA STATUS da solicitação
+# ============================================================================
+# Input: SolicitacaoUpdate (APENAS status e descricao)
+# Apenas admin pode fazer isso
+# Registra automaticamente no histórico (AtualizacaoSolicitacao)
+# ============================================================================
+
+# @router.put("/api/solicitacoes/{solicitacao_id}/status", response_model=SolicitacaoResponse, tags=["Solicitações"])
+# def atualizar_status_solicitacao(
+#     solicitacao_id: int,
+#     request: SolicitacaoUpdate,
+#     db: Session = Depends(obter_conexao),
+#     authorization: str = Header(None)
+# ):
+#     """
+#     ADMIN: Atualiza o STATUS de uma solicitação
+#     - Input: APENAS status e descricao (via SolicitacaoUpdate)
+#     - Requer autenticação de admin
+#     - Registra automaticamente mudança no histórico
+#     """
+    
+#     # Extrair token do header
+#     token = None
+#     if authorization and authorization.startswith("Bearer "):
+#         token = authorization[7:]
+    
+#     if not token:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token não fornecido"
+#         )
+
+#     # Extrair user_id do token
+#     admin_id = extrair_user_id_do_token(token)
+#     if not admin_id:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token inválido"
+#         )
+
+#     # Verificar se é admin
+#     if not verificar_admin(db, admin_id):
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="Apenas administradores"
+#         )
+
+#     # Buscar solicitação
+#     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+#     if not solicitacao:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Solicitação não encontrada"
+#         )
+
+#     # Status anterior (já vem como string do banco - ENUM)
+#     status_anterior = solicitacao.status.name
+
+#     # Novo status (vem como string do request)
+#     status_novo_str = request.status
+
+#     # Registrar no histórico
+#     atualizacao = AtualizacaoSolicitacao(
+#         solicitacao_id=solicitacao_id,
+#         administrador_id=admin_id,
+#         status_anterior=status_anterior,
+#         status_novo=status_novo_str,
+#         descricao=request.descricao
+#     )
+#     db.add(atualizacao)
+
+
+#     # Atualizar status e data de atualização
+#     solicitacao.status = StatusSolicitacaoEnum[request.status]
+#     solicitacao.atualizado_em = datetime.now()
+    
+#     db.commit()
+#     db.refresh(solicitacao)
+    
+#     logger.info(f"✅ Status atualizado para {status_novo_str}")
+#     return solicitacao
 
 
 # ============================================================================
@@ -406,32 +516,32 @@ def atualizar_status_solicitacao(
 # Ordena por data mais recente primeiro
 # ============================================================================
 
-@router.get("/api/solicitacoes/{solicitacao_id}/historico", response_model=List[AtualizacaoSolicitacaoResponse], tags=["Solicitações"])
-def obter_historico(
-    solicitacao_id: int,
-    db: Session = Depends(obter_conexao)
-):
-    """
-    Obtém histórico completo de mudanças de status
-    - Mostra quem (admin), quando, do que para quê
-    - Ordenado por data mais recente primeiro
-    """
+# @router.get("/api/solicitacoes/{solicitacao_id}/historico", response_model=List[AtualizacaoSolicitacaoResponse], tags=["Solicitações"])
+# def obter_historico(
+#     solicitacao_id: int,
+#     db: Session = Depends(obter_conexao)
+# ):
+#     """
+#     Obtém histórico completo de mudanças de status
+#     - Mostra quem (admin), quando, do que para quê
+#     - Ordenado por data mais recente primeiro
+#     """
     
-    # Verificar que solicitação existe
-    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
-    if not solicitacao:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Solicitação não encontrada"
-        )
+#     # Verificar que solicitação existe
+#     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+#     if not solicitacao:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Solicitação não encontrada"
+#         )
     
-    # Buscar histórico e ordenar
-    historico = db.query(AtualizacaoSolicitacao)\
-        .filter(AtualizacaoSolicitacao.solicitacao_id == solicitacao_id)\
-        .order_by(AtualizacaoSolicitacao.criado_em.desc())\
-        .all()
+#     # Buscar histórico e ordenar
+#     historico = db.query(AtualizacaoSolicitacao)\
+#         .filter(AtualizacaoSolicitacao.solicitacao_id == solicitacao_id)\
+#         .order_by(AtualizacaoSolicitacao.criado_em.desc())\
+#         .all()
     
-    return historico
+#     return historico
 
 
 # ============================================================================
@@ -502,73 +612,73 @@ def deletar_solicitacao(
 # Requer autenticação
 # ============================================================================
 
-@router.post("/api/solicitacoes/{solicitacao_id}/apoios", tags=["Solicitações"])
-def apoiar_solicitacao(
-    solicitacao_id: int,
-    db: Session = Depends(obter_conexao),
-    authorization: str = Header(None)
-):
-    """
-    Cidadão apoia uma solicitação existente
-    - Aumenta contador_apoios em 1
-    - Um usuário só pode apoiar uma vez
-    - Requer autenticação
-    """
+# @router.post("/api/solicitacoes/{solicitacao_id}/apoios", tags=["Solicitações"])
+# def apoiar_solicitacao(
+#     solicitacao_id: int,
+#     db: Session = Depends(obter_conexao),
+#     authorization: str = Header(None)
+# ):
+#     """
+#     Cidadão apoia uma solicitação existente
+#     - Aumenta contador_apoios em 1
+#     - Um usuário só pode apoiar uma vez
+#     - Requer autenticação
+#     """
     
-    # Extrair token do header
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
+#     # Extrair token do header
+#     token = None
+#     if authorization and authorization.startswith("Bearer "):
+#         token = authorization[7:]
     
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token não fornecido"
-        )
+#     if not token:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token não fornecido"
+#         )
 
-    # Extrair user_id do token
-    user_id = extrair_user_id_do_token(token)
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido"
-        )
+#     # Extrair user_id do token
+#     user_id = extrair_user_id_do_token(token)
+#     if not user_id:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token inválido"
+#         )
 
-    # Buscar solicitação
-    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
-    if not solicitacao:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Solicitação não encontrada"
-        )
+#     # Buscar solicitação
+#     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+#     if not solicitacao:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Solicitação não encontrada"
+#         )
 
-    # Verificar se já apoiou
-    existe_apoio = db.query(Apoio).filter_by(
-        solicitacao_id=solicitacao_id,
-        usuario_id=user_id
-    ).first()
+#     # Verificar se já apoiou
+#     existe_apoio = db.query(Apoio).filter_by(
+#         solicitacao_id=solicitacao_id,
+#         usuario_id=user_id
+#     ).first()
 
-    if existe_apoio:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Você já apoia"
-        )
+#     if existe_apoio:
+#         raise HTTPException(
+#             status_code=status.HTTP_409_CONFLICT,
+#             detail="Você já apoia"
+#         )
 
-    # Criar novo apoio
-    novo_apoio = Apoio(
-        solicitacao_id=solicitacao_id,
-        usuario_id=user_id
-    )
+#     # Criar novo apoio
+#     novo_apoio = Apoio(
+#         solicitacao_id=solicitacao_id,
+#         usuario_id=user_id
+#     )
 
-    # Incrementar contador
-    solicitacao.contador_apoios += 1
-    db.add(novo_apoio)
-    db.commit()
+#     # Incrementar contador
+#     solicitacao.contador_apoios += 1
+#     db.add(novo_apoio)
+#     db.commit()
     
-    return {
-        "message": "Apoio registrado",
-        "contador_apoios": solicitacao.contador_apoios
-    }
+#     return {
+#         "message": "Apoio registrado",
+#         "contador_apoios": solicitacao.contador_apoios
+#     }
 
 
 # # ============================================================================

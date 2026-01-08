@@ -150,6 +150,13 @@ app.include_router(fotos.router)
 from app.routes import avaliacoes
 app.include_router(avaliacoes.router)
 
+from app.routes import apoios
+app.include_router(apoios.router)
+
+from app.routes import admin
+app.include_router(admin.router)
+
+
 # Exemplo de como adicionar mais rotas no futuro:
 # from app.routes import fotos
 # app.include_router(fotos.router, prefix="/api", tags=["Fotos"])

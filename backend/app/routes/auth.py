@@ -2,7 +2,7 @@
 # auth.py - ROTAS DE AUTENTICAÇÃO
 # ============================================================================
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from app.models import Usuario
 from app.schemas import (
@@ -382,3 +382,147 @@ def mudar_senha(
     return {"mensagem": "Senha alterada com sucesso"}
 
 
+# ============================================================================
+# DELETE: Cidadão DELETA sua conta
+# ============================================================================
+
+@router.delete(
+    "/auth/conta",
+    tags=["Autenticação"],
+    summary="Deletar minha conta"
+)
+def deletar_conta(
+    db: Session = Depends(obter_conexao),
+    authorization: str = Header(None)
+):
+    """
+    Cidadão deleta sua conta permanentemente
+    
+    - Requer autenticação (token JWT)
+    - Deleta usuário e TODAS as suas solicitações (cascata)
+    - Ação irreversível
+    """
+    
+    # Extrair token
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token não fornecido"
+        )
+    
+    usuario_id = extrair_user_id_do_token(token)
+    if not usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido"
+        )
+    
+    # Buscar usuário
+    usuario = db.query(Usuario).filter_by(id=usuario_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    # Deletar usuário (cascata deleta solicitações)
+    db.delete(usuario)
+    db.commit()
+    
+    logger.info(f"✅ Conta deletada: usuario_id={usuario_id}")
+    
+    return {"mensagem": "Conta deletada com sucesso"}
+
+
+# ============================================================================
+# PUT: Cidadão ALTERA seu email
+# ============================================================================
+
+@router.put(
+    "/auth/email",
+    tags=["Autenticação"],
+    summary="Alterar email"
+)
+def alterar_email(
+    novo_email: str,
+    senha: str,
+    db: Session = Depends(obter_conexao),
+    authorization: str = Header(None)
+):
+    """
+    Cidadão altera seu email (validação simplificada apenas com senha)
+    
+    - Requer autenticação (token JWT)
+    - Valida senha atual (segurança básica)
+    - Verifica se novo email já não está registrado
+    - Atualiza email na conta
+    """
+    
+    # Extrair token
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token não fornecido"
+        )
+    
+    usuario_id = extrair_user_id_do_token(token)
+    if not usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido"
+        )
+    
+    # Buscar usuário
+    usuario = db.query(Usuario).filter_by(id=usuario_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    # Validar senha
+    from app.utils.security import verificar_senha
+    if not verificar_senha(senha, usuario.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Senha incorreta"
+        )
+    
+    # Validar novo email não está registrado
+    email_existe = db.query(Usuario).filter(
+        Usuario.email == novo_email,
+        Usuario.id != usuario_id
+    ).first()
+    
+    if email_existe:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este email já está registrado"
+        )
+    
+    # Validar formato email (básico)
+    if "@" not in novo_email or "." not in novo_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email inválido"
+        )
+    
+    # Atualizar email
+    usuario.email = novo_email
+    db.commit()
+    db.refresh(usuario)
+    
+    logger.info(f"✅ Email alterado: usuario_id={usuario_id}")
+    
+    return {
+        "mensagem": "Email alterado com sucesso",
+        "novo_email": novo_email
+    }
