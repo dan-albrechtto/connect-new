@@ -101,7 +101,7 @@ def comprimir_imagem(arquivo_upload):
 # PROCESSAR E SALVAR
 # ============================================================================
 
-def processar_imagem_upload(arquivo_upload, problema_id: int):
+def processar_imagem_upload(arquivo_upload, solicitacao_id: int):
     """Processa e salva imagem"""
     try:
         # Valida
