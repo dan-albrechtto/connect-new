@@ -8,7 +8,7 @@ from app.models import Usuario
 from app.schemas import (
     UsuarioCreate, UsuarioResponse, UsuarioUpdate, MudarSenhaRequest, MudarSenhaResponse
 )
-from app.utils.security import (
+from app.utils.seguranca import (
     hash_senha, verificar_senha, validar_cpf, criar_access_token, extrair_user_id_do_token
 )
 from database.connection import obter_conexao
@@ -246,7 +246,7 @@ def get_current_user(
             detail="Token não fornecido"
         )
     
-    from app.utils.security import extrair_user_id_do_token
+    from app.utils.seguranca import extrair_user_id_do_token
     
     user_id = extrair_user_id_do_token(token)
     
@@ -436,7 +436,7 @@ def alterar_email(
         )
     
     # Validar senha
-    from app.utils.security import verificar_senha
+    from app.utils.seguranca import verificar_senha
     if not verificar_senha(senha, usuario.senha_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

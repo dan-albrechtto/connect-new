@@ -14,7 +14,7 @@ import logging
 
 from app.models import Avaliacao, Solicitacao, Usuario
 from app.schemas import AvaliacaoCreate, AvaliacaoResponse
-from app.utils.security import extrair_user_id_do_token
+from app.utils.seguranca import extrair_user_id_do_token
 from database.connection import obter_conexao
 
 logger = logging.getLogger(__name__)

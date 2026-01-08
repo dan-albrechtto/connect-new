@@ -12,8 +12,8 @@ from datetime import datetime
 
 from database.connection import obter_conexao
 from app.models import Solicitacao, Foto
-from app.utils.security import extrair_user_id_do_token
-from app.utils.image_processor import (
+from app.utils.seguranca import extrair_user_id_do_token
+from app.utils.processador_imagens import (
     processar_imagem_upload,
     validar_arquivo_imagem,
     deletar_imagem
@@ -22,26 +22,148 @@ from app.utils.image_processor import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# # ============================================================================
+# # UPLOAD DE FOTO
+# # ============================================================================
+
+# @router.post("/api/solicitacoes/{solicitacao_id}/fotos", tags=["Fotos"])
+# async def upload_foto(
+#     solicitacao_id: int,
+#     arquivo: UploadFile = File(...),
+#     db: Session = Depends(obter_conexao),
+#     authorization: str = Header(None)
+# ):
+#     """
+#     Faz upload de foto para solicitação
+#     - Máximo 5 fotos por solicitação
+#     - Formatos: JPEG, PNG
+#     - Tamanho: 10 MB
+#     - EXIF removido automaticamente
+#     """
+    
+#     # Extrair token
+#     token = None
+#     if authorization and authorization.startswith("Bearer "):
+#         token = authorization[7:]
+    
+#     if not token:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token não fornecido"
+#         )
+    
+#     user_id = extrair_user_id_do_token(token)
+#     if not user_id:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token inválido"
+#         )
+    
+#     # Verificar solicitação (usa Solicitacao)
+#     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+#     if not solicitacao:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Solicitação não encontrada"
+#         )
+    
+#     # Verificar permissão
+#     if solicitacao.usuario_id != user_id:
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="Sem permissão para adicionar fotos"
+#         )
+    
+#     # Validar arquivo
+#     valido, msg = validar_arquivo_imagem(arquivo)
+#     if not valido:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail=msg
+#         )
+    
+#     # Verificar limite (máximo 5)
+#     count = db.query(Foto).filter_by(solicitacao_id=solicitacao_id).count()
+#     if count >= 5:
+#         raise HTTPException(
+#             status_code=status.HTTP_409_CONFLICT,
+#             detail="Limite de 5 fotos atingido"
+#         )
+    
+#     # Processar imagem
+#     caminho = processar_imagem_upload(arquivo, solicitacao_id)
+#     if not caminho:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Erro ao processar imagem"
+#         )
+    
+#     # Salvar no banco
+#     try:
+#         # Obter tamanho do arquivo em bytes
+#         import os
+#         tamanho_bytes = os.path.getsize(caminho)
+        
+#         # Obter tipo MIME
+#         tipo_mime = arquivo.content_type
+        
+#         # Calcular ordem (próxima posição)
+#         proxima_ordem = count + 1
+        
+#         nova_foto = Foto(
+#             solicitacao_id=solicitacao_id,
+#             caminho_arquivo=caminho,
+#             tamanho=tamanho_bytes,
+#             tipo_mime=tipo_mime,
+#             ordem=proxima_ordem,
+#             criado_em=datetime.now()
+#         )
+#         db.add(nova_foto)
+#         db.commit()
+#         db.refresh(nova_foto)
+        
+#         logger.info(f"✅ Foto salva: ID {nova_foto.id}")
+        
+#         return {
+#             "id": nova_foto.id,
+#             "solicitacao_id": solicitacao_id,
+#             "caminho_arquivo": caminho,
+#             "tamanho": tamanho_bytes,
+#             "tipo_mime": tipo_mime,
+#             "ordem": proxima_ordem,
+#             "message": "Foto enviada com sucesso"
+#         }
+        
+#     except Exception as e:
+#         logger.error(f"❌ Erro ao salvar: {str(e)}")
+#         deletar_imagem(caminho)
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Erro ao salvar foto"
+#         )
+
 # ============================================================================
-# UPLOAD DE FOTO
+# UPLOAD DE FOTOS (MÚLTIPLAS)
 # ============================================================================
 
 @router.post("/api/solicitacoes/{solicitacao_id}/fotos", tags=["Fotos"])
-async def upload_foto(
+async def upload_fotos(
     solicitacao_id: int,
-    arquivo: UploadFile = File(...),
+    arquivos: list[UploadFile] = File(...),
     db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
     """
-    Faz upload de foto para solicitação
-    - Máximo 5 fotos por solicitação
+    Faz upload de múltiplas fotos para solicitação
+    
+    - Máximo 5 fotos por solicitação (total)
+    - Máximo 5 arquivos por requisição
     - Formatos: JPEG, PNG
-    - Tamanho: 10 MB
+    - Tamanho: 5 MB cada (máximo)
     - EXIF removido automaticamente
     """
     
-    # Extrair token
+    # ========== VALIDAÇÃO 1: Extrair e validar token ==========
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
@@ -52,14 +174,14 @@ async def upload_foto(
             detail="Token não fornecido"
         )
     
-    user_id = extrair_user_id_do_token(token)
-    if not user_id:
+    usuario_id = extrair_user_id_do_token(token)
+    if not usuario_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido"
         )
     
-    # Verificar solicitação (usa Solicitacao)
+    # ========== VALIDAÇÃO 2: Solicitação existe ==========
     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
     if not solicitacao:
         raise HTTPException(
@@ -67,80 +189,92 @@ async def upload_foto(
             detail="Solicitação não encontrada"
         )
     
-    # Verificar permissão
-    if solicitacao.usuario_id != user_id:
+    # ========== VALIDAÇÃO 3: É o criador? ==========
+    if solicitacao.usuario_id != usuario_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sem permissão para adicionar fotos"
         )
     
-    # Validar arquivo
-    valido, msg = validar_arquivo_imagem(arquivo)
-    if not valido:
+    # ========== VALIDAÇÃO 4: Quantidade de arquivos ==========
+    if len(arquivos) > 5:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg
+            detail="Máximo 5 arquivos por vez"
         )
     
-    # Verificar limite (máximo 5)
-    count = db.query(Foto).filter_by(solicitacao_id=solicitacao_id).count()
-    if count >= 5:
+    # ========== VALIDAÇÃO 5: Limite total de fotos ==========
+    fotos_existentes = db.query(Foto).filter_by(solicitacao_id=solicitacao_id).count()
+    if fotos_existentes + len(arquivos) > 5:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Limite de 5 fotos atingido"
+            detail=f"Limite atingido. Você tem {fotos_existentes} foto(s) e tentou adicionar {len(arquivos)}. Máximo total: 5"
         )
     
-    # Processar imagem
-    caminho = processar_imagem_upload(arquivo, solicitacao_id)
-    if not caminho:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao processar imagem"
-        )
+    # ========== PROCESSAR FOTOS ==========
+    fotos_salvas = []
+    fotos_erro = []
     
-    # Salvar no banco
-    try:
-        # Obter tamanho do arquivo em bytes
-        import os
-        tamanho_bytes = os.path.getsize(caminho)
-        
-        # Obter tipo MIME
-        tipo_mime = arquivo.content_type
-        
-        # Calcular ordem (próxima posição)
-        proxima_ordem = count + 1
-        
-        nova_foto = Foto(
-            solicitacao_id=solicitacao_id,
-            caminho_arquivo=caminho,
-            tamanho=tamanho_bytes,
-            tipo_mime=tipo_mime,
-            ordem=proxima_ordem,
-            criado_em=datetime.now()
-        )
-        db.add(nova_foto)
+    for idx, arquivo in enumerate(arquivos):
+        try:
+            # Validar arquivo
+            valido, msg = validar_arquivo_imagem(arquivo)
+            if not valido:
+                fotos_erro.append({"arquivo": arquivo.filename, "erro": msg})
+                continue
+            
+            # Processar imagem
+            caminho = processar_imagem_upload(arquivo, solicitacao_id)
+            if not caminho:
+                fotos_erro.append({"arquivo": arquivo.filename, "erro": "Erro ao processar"})
+                continue
+            
+            # Obter metadados
+            import os
+            tamanho_bytes = os.path.getsize(caminho)
+            tipo_mime = arquivo.content_type
+            proxima_ordem = fotos_existentes + len(fotos_salvas) + 1
+            
+            # Salvar no banco
+            nova_foto = Foto(
+                solicitacao_id=solicitacao_id,
+                caminho_arquivo=caminho,
+                tamanho=tamanho_bytes,
+                tipo_mime=tipo_mime,
+                ordem=proxima_ordem,
+                criado_em=datetime.now()
+            )
+            db.add(nova_foto)
+            db.flush()  # Flush para gerar ID sem commitar tudo
+            
+            fotos_salvas.append({
+                "id": nova_foto.id,
+                "ordem": proxima_ordem,
+                "arquivo": arquivo.filename,
+                "tamanho": tamanho_bytes
+            })
+            
+            logger.info(f"✅ Foto {idx+1} salva: ID {nova_foto.id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao salvar foto {idx+1}: {str(e)}")
+            fotos_erro.append({"arquivo": arquivo.filename, "erro": str(e)})
+            continue
+    
+    # ========== COMMIT FINAL ==========
+    if fotos_salvas:
         db.commit()
-        db.refresh(nova_foto)
-        
-        logger.info(f"✅ Foto salva: ID {nova_foto.id}")
-        
-        return {
-            "id": nova_foto.id,
-            "solicitacao_id": solicitacao_id,
-            "caminho_arquivo": caminho,
-            "tamanho": tamanho_bytes,
-            "tipo_mime": tipo_mime,
-            "ordem": proxima_ordem,
-            "message": "Foto enviada com sucesso"
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Erro ao salvar: {str(e)}")
-        deletar_imagem(caminho)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao salvar foto"
-        )
+    
+    # ========== RESPOSTA ==========
+    return {
+        "total_enviados": len(arquivos),
+        "sucessos": len(fotos_salvas),
+        "erros": len(fotos_erro),
+        "fotos_salvas": fotos_salvas,
+        "fotos_erro": fotos_erro,
+        "message": f"{len(fotos_salvas)} foto(s) enviada(s) com sucesso" if fotos_salvas else "Nenhuma foto foi salva"
+    }
+
 
 # ============================================================================
 # LISTAR FOTOS

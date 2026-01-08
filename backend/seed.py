@@ -4,7 +4,7 @@
 
 from database.connection import SessionLocal, engine, create_all_tables
 from app.models import Base, Usuario, Categoria, Status
-from app.utils.security import hash_senha
+from app.utils.seguranca import hash_senha
 from config import (
     TIPO_USUARIO, STATUS_SOLICITACAO, CATEGORIAS,
     ADMIN_PADRAO_CPF, ADMIN_PADRAO_SENHA, ADMIN_PADRAO_NOME, ADMIN_PADRAO_EMAIL

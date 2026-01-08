@@ -116,7 +116,7 @@ def processar_imagem_upload(arquivo_upload, problema_id: int):
             return None
         
         # Cria pasta
-        pasta = os.path.join(PASTA_UPLOADS, f"problema_{problema_id}")
+        pasta = os.path.join(PASTA_UPLOADS, str(solicitacao_id))
         os.makedirs(pasta, exist_ok=True)
         
         # Gera nome único
@@ -130,7 +130,7 @@ def processar_imagem_upload(arquivo_upload, problema_id: int):
         
         logger.info(f"✅ Salva em: {caminho}")
         
-        return os.path.join(PASTA_UPLOADS, f"problema_{problema_id}", nome)
+        return os.path.join(PASTA_UPLOADS, str(solicitacao_id), nome)
         
     except Exception as e:
         logger.error(f"❌ Erro ao processar: {str(e)}")
