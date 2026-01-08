@@ -42,11 +42,70 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
+# ============================================================================
+# CADASTRO CIDADÃO
+# ============================================================================
+
+@router.post("/auth/cadastro", response_model=UsuarioResponse, tags=["Autenticação"], summary="Cadastro Cidadão")
+def cadastro_cidadao(
+    request: UsuarioCreate,
+    db: Session = Depends(obter_conexao)
+):
+    """
+    Cadastro de novo cidadão
+    
+    CPF e email devem ser únicos
+    """
+    # Valida CPF
+    if not validar_cpf(request.cpf):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CPF inválido"
+        )
+    
+    # Verifica se CPF já existe
+    existe_cpf = db.query(Usuario).filter_by(cpf=request.cpf).first()
+    if existe_cpf:
+        logger.warning(f"❌ CPF já cadastrado: {request.cpf}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CPF já cadastrado"
+        )
+    
+    # Verifica se email já existe
+    existe_email = db.query(Usuario).filter_by(email=request.email).first()
+    if existe_email:
+        logger.warning(f"❌ Email já cadastrado: {request.email}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email já cadastrado"
+        )
+    
+    # Cria novo usuário cidadão
+    novo_usuario = Usuario(
+        cpf=request.cpf,
+        email=request.email,
+        nome=request.nome,
+        senha_hash=hash_senha(request.senha),
+        telefone=request.telefone,
+        data_nascimento=request.data_nascimento,
+        tipo_usuario=TipoUsuarioEnum.CIDADAO,
+        ativo=True
+    )
+    
+    db.add(novo_usuario)
+    db.commit()
+    db.refresh(novo_usuario)
+    
+    logger.info(f"✅ Novo cidadão cadastrado: {request.cpf}")
+    return novo_usuario
+
 # ============================================================================
 # LOGIN CIDADÃO
 # ============================================================================
 
-@router.post("/auth/login/cidadao", response_model=TokenResponse, tags=["Autenticação"])
+@router.post("/auth/login/cidadao", response_model=TokenResponse, tags=["Autenticação"], summary="Login Cidadão")
 def login_cidadao(
     request: LoginCidadaoRequest,
     db: Session = Depends(obter_conexao)
@@ -164,70 +223,14 @@ def login_admin(
     return {"access_token": token, "token_type": "bearer"}
 
 
-# ============================================================================
-# CADASTRO CIDADÃO
-# ============================================================================
 
-@router.post("/auth/cadastro", response_model=UsuarioResponse, tags=["Autenticação"])
-def cadastro_cidadao(
-    request: UsuarioCreate,
-    db: Session = Depends(obter_conexao)
-):
-    """
-    Cadastro de novo cidadão
-    
-    CPF e email devem ser únicos
-    """
-    # Valida CPF
-    if not validar_cpf(request.cpf):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CPF inválido"
-        )
-    
-    # Verifica se CPF já existe
-    existe_cpf = db.query(Usuario).filter_by(cpf=request.cpf).first()
-    if existe_cpf:
-        logger.warning(f"❌ CPF já cadastrado: {request.cpf}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CPF já cadastrado"
-        )
-    
-    # Verifica se email já existe
-    existe_email = db.query(Usuario).filter_by(email=request.email).first()
-    if existe_email:
-        logger.warning(f"❌ Email já cadastrado: {request.email}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email já cadastrado"
-        )
-    
-    # Cria novo usuário cidadão
-    novo_usuario = Usuario(
-        cpf=request.cpf,
-        email=request.email,
-        nome=request.nome,
-        senha_hash=hash_senha(request.senha),
-        telefone=request.telefone,
-        data_nascimento=request.data_nascimento,
-        tipo_usuario=TipoUsuarioEnum.CIDADAO,
-        ativo=True
-    )
-    
-    db.add(novo_usuario)
-    db.commit()
-    db.refresh(novo_usuario)
-    
-    logger.info(f"✅ Novo cidadão cadastrado: {request.cpf}")
-    return novo_usuario
 
 
 # ============================================================================
 # VERIFICAR USUÁRIO ATUAL
 # ============================================================================
 
-@router.get("/auth/me", tags=["Autenticação"])
+@router.get("/auth/eu", tags=["Autenticação"], summary="Verificar Usuário Atual")
 def get_current_user(
     db: Session = Depends(obter_conexao),
     token: str = None
@@ -270,7 +273,7 @@ def get_current_user(
 # ============================================================================
 
 
-@router.put("/auth/perfil", response_model=UsuarioResponse, tags=["Autenticação"])
+@router.put("/auth/atualizar-cadastro", response_model=UsuarioResponse, tags=["Autenticação"], summary="Atualizar Dados do Cadastro")
 def atualizar_perfil(
     request: UsuarioUpdate,
     db: Session = Depends(obter_conexao),
@@ -322,7 +325,7 @@ def atualizar_perfil(
 # ============================================================================
 
 
-@router.put("/auth/mudar-senha", response_model=MudarSenhaResponse, tags=["Autenticação"])
+@router.put("/auth/alterar-senha", response_model=MudarSenhaResponse, tags=["Autenticação"], summary="Alterar Senha")
 def mudar_senha(
     request: MudarSenhaRequest,
     db: Session = Depends(obter_conexao),
@@ -383,67 +386,11 @@ def mudar_senha(
 
 
 # ============================================================================
-# DELETE: Cidadão DELETA sua conta
-# ============================================================================
-
-@router.delete(
-    "/auth/conta",
-    tags=["Autenticação"],
-    summary="Deletar minha conta"
-)
-def deletar_conta(
-    db: Session = Depends(obter_conexao),
-    authorization: str = Header(None)
-):
-    """
-    Cidadão deleta sua conta permanentemente
-    
-    - Requer autenticação (token JWT)
-    - Deleta usuário e TODAS as suas solicitações (cascata)
-    - Ação irreversível
-    """
-    
-    # Extrair token
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
-    
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token não fornecido"
-        )
-    
-    usuario_id = extrair_user_id_do_token(token)
-    if not usuario_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido"
-        )
-    
-    # Buscar usuário
-    usuario = db.query(Usuario).filter_by(id=usuario_id).first()
-    if not usuario:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuário não encontrado"
-        )
-    
-    # Deletar usuário (cascata deleta solicitações)
-    db.delete(usuario)
-    db.commit()
-    
-    logger.info(f"✅ Conta deletada: usuario_id={usuario_id}")
-    
-    return {"mensagem": "Conta deletada com sucesso"}
-
-
-# ============================================================================
 # PUT: Cidadão ALTERA seu email
 # ============================================================================
 
 @router.put(
-    "/auth/email",
+    "/auth/alterar-email",
     tags=["Autenticação"],
     summary="Alterar email"
 )
@@ -526,3 +473,59 @@ def alterar_email(
         "mensagem": "Email alterado com sucesso",
         "novo_email": novo_email
     }
+
+
+# ============================================================================
+# DELETE: Cidadão DELETA sua conta
+# ============================================================================
+
+@router.delete(
+    "/auth/deletar-conta",
+    tags=["Autenticação"],
+    summary="Deletar Conta"
+)
+def deletar_conta(
+    db: Session = Depends(obter_conexao),
+    authorization: str = Header(None)
+):
+    """
+    Cidadão deleta sua conta permanentemente
+    
+    - Requer autenticação (token JWT)
+    - Deleta usuário e TODAS as suas solicitações (cascata)
+    - Ação irreversível
+    """
+    
+    # Extrair token
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token não fornecido"
+        )
+    
+    usuario_id = extrair_user_id_do_token(token)
+    if not usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido"
+        )
+    
+    # Buscar usuário
+    usuario = db.query(Usuario).filter_by(id=usuario_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    # Deletar usuário (cascata deleta solicitações)
+    db.delete(usuario)
+    db.commit()
+    
+    logger.info(f"✅ Conta deletada: usuario_id={usuario_id}")
+    
+    return {"mensagem": "Conta deletada com sucesso"}

@@ -165,7 +165,7 @@ def verificar_admin(db: Session, user_id: int) -> bool:
 # Verifica duplicatas automaticamente
 # ============================================================================
 
-@router.post("/api/solicitacoes", response_model=SolicitacaoResponse, tags=["Solicitações"])
+@router.post("/api/solicitacoes", response_model=SolicitacaoResponse, tags=["Solicitações"], summary="Criar Solicitação")
 def criar_solicitacao(
     request: SolicitacaoCreate,
     db: Session = Depends(obter_conexao),
@@ -247,7 +247,7 @@ def criar_solicitacao(
 # Ordena por criado_em (mais recentes primeiro)
 # ============================================================================
 
-@router.get("/api/solicitacoes", response_model=List[SolicitacaoResponse], tags=["Solicitações"])
+@router.get("/api/solicitacoes", response_model=List[SolicitacaoResponse], tags=["Solicitações"], summary="Listar Solicitações")
 def listar_solicitacoes(
     db: Session = Depends(obter_conexao),
     categoria_id: Optional[int] = None,
@@ -287,11 +287,15 @@ def listar_solicitacoes(
     
     return solicitacoes
 
+
+# ============================================================================
+# GET: Listar as solicitações DO USUÁRIO
+# ============================================================================
 @router.get(
     "/api/solicitacoes/minhas",
     response_model=dict,
     tags=["Solicitações"],
-    summary="Listar minhas solicitações"
+    summary="Listar Minhas Solicitações"
 )
 def listar_minhas_solicitacoes(
     db: Session = Depends(obter_conexao),
@@ -334,40 +338,17 @@ def listar_minhas_solicitacoes(
         "solicitacoes": [SolicitacaoResponse.from_orm(s) for s in minhas_solicitacoes]
     }
 
-
-
 # ============================================================================
-# GET: Obter UMA solicitação por ID
+# GET: Obter histórico de mudanças da sua solicitação
 # ============================================================================
-# Retorna detalhes completos incluindo status atual
+# Retorna histórico de status
 # ============================================================================
-
-@router.get("/api/solicitacoes/{solicitacao_id}", response_model=SolicitacaoResponse, tags=["Solicitações"])
-def obter_solicitacao(
-    solicitacao_id: int,
-    db: Session = Depends(obter_conexao)
-):
-    """
-    Retorna detalhes completos de uma solicitação específica
-    Inclui: id, protocolo, descricao, localização, status, contador_apoios, datas
-    """
-    
-    # Buscar solicitação no banco
-    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
-    if not solicitacao:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Solicitação não encontrada"
-        )
-
-    return solicitacao
-
 
 @router.get(
     "/api/solicitacoes/{solicitacao_id}/historico",
     response_model=List[AtualizacaoSolicitacaoResponse],
     tags=["Solicitações"],
-    summary="Ver histórico de mudanças"
+    summary="Ver Histórico de Atualizações de Status"
 )
 def obter_historico_cidadao(
     solicitacao_id: int,
@@ -422,6 +403,36 @@ def obter_historico_cidadao(
     ).order_by(AtualizacaoSolicitacao.criado_em.desc()).all()
     
     return historico
+
+
+# ============================================================================
+# GET: Obter UMA solicitação por ID
+# ============================================================================
+# Retorna detalhes completos incluindo status atual
+# ============================================================================
+
+@router.get("/api/solicitacoes/{solicitacao_id}", response_model=SolicitacaoResponse, tags=["Solicitações"], summary="Obter Solicitação")
+def obter_solicitacao(
+    solicitacao_id: int,
+    db: Session = Depends(obter_conexao)
+):
+    """
+    Retorna detalhes completos de uma solicitação específica
+    Inclui: id, protocolo, descricao, localização, status, contador_apoios, datas
+    """
+    
+    # Buscar solicitação no banco
+    solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    if not solicitacao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Solicitação não encontrada"
+        )
+
+    return solicitacao
+
+
+
 
 
 
@@ -551,7 +562,7 @@ def obter_historico_cidadao(
 # Requer autenticação
 # ============================================================================
 
-@router.delete("/api/solicitacoes/{solicitacao_id}", tags=["Solicitações"])
+@router.delete("/api/solicitacoes/{solicitacao_id}", tags=["Solicitações"], summary="Deletar Solicitação")
 def deletar_solicitacao(
     solicitacao_id: int,
     db: Session = Depends(obter_conexao),
