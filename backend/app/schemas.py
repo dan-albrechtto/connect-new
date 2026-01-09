@@ -353,24 +353,103 @@ class ErrorResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now, description="Momento em que o erro ocorreu")
 
 
+# # ============================================
+# # COMENTÁRIOS
+# # ============================================
+
+# class ComentarioCreate(BaseModel):
+#     """Request para criar comentário"""
+#     texto: str = Field(..., min_length=1, max_length=500)
+
+
+# class ComentarioResponse(BaseModel):
+#     """Response com dados do comentário"""
+#     id: int
+#     solicitacao_id: int
+#     usuario_id: int
+#     texto: str
+#     criado_em: datetime
+#     usuario_nome: Optional[str] = None
+#     usuario_tipo: Optional[str] = None
+    
+#     class Config:
+#         from_attributes = True
+
 # ============================================
-# COMENTÁRIOS
+# NOTIFICACAO
 # ============================================
 
-class ComentarioCreate(BaseModel):
-    """Request para criar comentário"""
-    texto: str = Field(..., min_length=1, max_length=500)
+class NotificacaoCreate(BaseModel):
+    """Schema para CRIAR notificação (uso interno do backend)
+    
+    Quando admin atualiza status de uma solicitação,
+    uma notificação é criada automaticamente.
+    """
+    usuario_id: int = Field(..., description="ID do usuário que receberá")
+    solicitacao_id: int = Field(..., description="ID da solicitação relacionada")
+    titulo: str = Field(
+        ...,
+        max_length=255,
+        description="Título da notificação"
+    )
+    conteudo: str = Field(
+        ...,
+        description="Conteúdo detalhado da notificação"
+    )
 
 
-class ComentarioResponse(BaseModel):
-    """Response com dados do comentário"""
+class NotificacaoResponse(BaseModel):
+    """Schema para RETORNAR notificação via API
+    
+    Usado em: GET /api/notificacoes/minhas
+    """
     id: int
-    solicitacao_id: int
     usuario_id: int
-    texto: str
+    solicitacao_id: int
+    titulo: str
+    conteudo: str
+    lida: bool
     criado_em: datetime
-    usuario_nome: Optional[str] = None
-    usuario_tipo: Optional[str] = None
+    atualizado_em: Optional[datetime] = None
     
     class Config:
         from_attributes = True
+
+
+class NotificacaoListaResponse(BaseModel):
+    """Resposta ao listar notificações
+    
+    Retorna: total, quantidade não-lidas, e lista
+    """
+    total: int = Field(..., description="Quantidade total de notificações")
+    nao_lidas: int = Field(..., description="Quantidade de não-lidas")
+    notificacoes: list[NotificacaoResponse] = Field(
+        default_factory=list,
+        description="Lista de notificações"
+    )
+
+
+class NotificacaoMarcarLidaRequest(BaseModel):
+    """Request para marcar notificação como lida"""
+    lida: bool = Field(default=True, description="Marcar como lida")
+
+
+class NotificacaoMarcarLidaResponse(BaseModel):
+    """Resposta ao marcar como lida"""
+    sucesso: bool
+    mensagem: str
+    nao_lidas_restantes: int
+
+
+class NotificacaoDeletarResponse(BaseModel):
+    """Resposta ao deletar notificação"""
+    sucesso: bool
+    mensagem: str
+
+
+class NotificacaoContarResponse(BaseModel):
+    """Resposta ao contar não-lidas"""
+    nao_lidas: int = Field(
+        ...,
+        description="Quantidade de notificações não-lidas"
+    )

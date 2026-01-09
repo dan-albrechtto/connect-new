@@ -142,6 +142,7 @@ def atualizar_status_solicitacao_admin(
     - Novo status deve ser: PENDENTE, EM_ANALISE, EM_ANDAMENTO, RESOLVIDO, CANCELADO
     - Descrição obrigatória (motivo da mudança)
     - Registra automaticamente no histórico de atualizações
+    - ✅ CRIA NOTIFICAÇÃO AUTOMÁTICA para o cidadão
     """
     admin_id = obter_admin_id(authorization)
     
@@ -189,9 +190,33 @@ def atualizar_status_solicitacao_admin(
     db.commit()
     db.refresh(solicitacao)
     
+    # ========== ✅ CRIAR NOTIFICAÇÃO PARA O CIDADÃO ==========
+    from app.utils.servico_notificacao import criar_notificacao_status_atualizado
+    
+    # Criar mensagem amigável
+    titulo = f"Sua solicitação #{solicitacao.protocolo} foi atualizada"
+    conteudo = f"Status mudou de '{status_anterior}' para '{novo_status}'. Observação do administrador: {descricao}. Clique para ver detalhes e acompanhar."
+    
+    # Criar notificação (vai para banco + email depois)
+    try:
+        criar_notificacao_status_atualizado(
+            db=db,
+            usuario_id=solicitacao.usuario_id,  # ← Cidadão que criou a solicitação
+            solicitacao_id=solicitacao_id,
+            titulo=titulo,
+            conteudo=conteudo
+        )
+        logger.info(f"✅ Notificação criada para usuário {solicitacao.usuario_id}")
+    except Exception as e:
+        logger.error(f"❌ Erro ao criar notificação: {str(e)}")
+        # Não bloqueia a atualização se notificação falhar
+    
+    # ========== FIM CRIAÇÃO DE NOTIFICAÇÃO ==========
+    
     logger.info(f"✅ Status atualizado: solicitacao_id={solicitacao_id} - {status_anterior} → {novo_status}")
     
     return solicitacao
+
 
 
 @router.get(

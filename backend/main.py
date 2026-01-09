@@ -153,6 +153,9 @@ app.include_router(avaliacoes.router)
 from app.routes import apoios
 app.include_router(apoios.router)
 
+from app.routes import notificacoes
+app.include_router(notificacoes.router)
+
 from app.routes import admin
 app.include_router(admin.router)
 

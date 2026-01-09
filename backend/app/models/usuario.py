@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Enum, func
 from database.connection import Base
 from app.utils.enums import TipoUsuarioEnum  # Ajuste conforme sua estrutura
+from sqlalchemy.orm import relationship
 
 # ============================================
 # MODELO: Usuario
@@ -66,6 +67,7 @@ class Usuario(Base):
         nullable=False
     )
 
-        # ========== RELACIONAMENTOS ==========
+    # # ========== RELACIONAMENTOS ==========
     # solicitacoes = relationship("Solicitacao", back_populates="usuario")
-    # comentarios = relationship("Comentario", back_populates="usuario")
+    # notificacoes = relationship("Notificacao", back_populates="usuario", cascade="all, delete-orphan")
+
