@@ -4,22 +4,10 @@ from enum import Enum as PyEnum
 from typing import Optional
 
 
-# ========== ENUMS ==========
-# DEVEM VIR ANTES de serem usados!
+# ========== ENUMS - IMPORTAR DIRETO DO UTILS ==========
 
-class StatusSolicitacaoSchema(str, PyEnum):
-    """Enum de status para exibição na API"""
-    PENDENTE = "PENDENTE"
-    EM_ANALISE = "EM_ANALISE"
-    EM_ANDAMENTO = "EM_ANDAMENTO"
-    RESOLVIDO = "RESOLVIDO"
-    CANCELADO = "CANCELADO"
+from app.utils.enums import StatusSolicitacaoEnum, TipoUsuarioEnum
 
-
-class TipoUsuarioSchema(str, PyEnum):
-    """Enum de tipo de usuário para exibição na API"""
-    CIDADAO = "CIDADAO"
-    ADMINISTRADOR = "ADMINISTRADOR"
 
 
 # ============================================
@@ -42,7 +30,7 @@ class UsuarioResponse(BaseModel):
     nome: str
     email: str
     cpf: str
-    tipo_usuario: str
+    tipo_usuario: int  # Armazena como int (1 ou 2)
     telefone: Optional[str] = None
     ativo: bool
     criado_em: datetime
@@ -52,10 +40,22 @@ class UsuarioResponse(BaseModel):
     
     @field_serializer('tipo_usuario')
     def serializar_tipo_usuario(self, value):
-        """Converte Enum TipoUsuarioEnum para string"""
-        if hasattr(value, 'value'):
-            return value.value
-        return str(value)
+        """
+        Converte valor int/Enum para o nome do enum (STRING).
+        
+        Exemplo:
+            Se BD tem 1 → retorna "CIDADAO"
+            Se BD tem 2 → retorna "ADMINISTRADOR"
+        """
+        if isinstance(value, TipoUsuarioEnum):
+            return value.name  # "CIDADAO", "ADMINISTRADOR"
+        
+        # Se vier como int, converte para enum e pega o nome
+        try:
+            enum_obj = TipoUsuarioEnum.from_value(value)
+            return enum_obj.name
+        except:
+            return str(value)
     
 class UsuarioUpdate(BaseModel):
     """Schema para ATUALIZAR dados básicos do usuário"""
@@ -109,13 +109,14 @@ class CategoriaResponse(BaseModel):
     - 1: Coleta de Lixo (🗑️)
     - 2: Iluminação Pública (💡)
     - 3: Acessibilidade (♿)
+    - 4: Vias (🚗)
     
     Admin e cidadão apenas CONSULTAM, não criam/editam/deletam.
     """
     id: int
     nome: str
     descricao: str
-    icone: str  # Emoji: "🗑️", "💡", "♿"
+    icone: str  # Emoji: "🗑️", "💡", "♿", "🚗"
     ativo: bool
     criado_em: datetime
 
@@ -137,13 +138,38 @@ class SolicitacaoCreate(BaseModel):
 
 
 class SolicitacaoUpdate(BaseModel):
-    """Schema para ATUALIZAR status de solicitação (input do admin)"""
-    status: StatusSolicitacaoSchema = Field(..., description="Novo status da solicitação")
-    descricao: str = Field(..., min_length=1, max_length=2000, description="Motivo/descrição da atualização")
+    """
+    Schema para ATUALIZAR status de solicitação (input do admin).
+    
+    O admin envia: {"status": "EM_ANDAMENTO", "descricao_admin": "..."}
+    O sistema converte automaticamente para enum.
+    """
+    status: str = Field(
+        ...,
+        description="Novo status (PENDENTE, EM_ANALISE, EM_ANDAMENTO, RESOLVIDO, CANCELADO)"
+    )
+    descricao_admin: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="Motivo/descrição da atualização"
+    )
+
+    @field_validator('status', mode='before')
+    @classmethod
+    def validar_status(cls, v):
+        """Valida se o status é válido"""
+        status_validos = ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
+        if v not in status_validos:
+            raise ValueError(f"Status '{v}' inválido. Use: {', '.join(status_validos)}")
+        return v
 
 
 class SolicitacaoResponse(BaseModel):
-    """Schema para RETORNAR solicitação (output da API)"""
+    """
+    Schema para RETORNAR solicitação (output da API)
+    Nota: status vem do BD como Enum, aqui convertemos para o nome (STRING).
+    """
     id: int
     protocolo: str
     descricao: str
@@ -152,7 +178,7 @@ class SolicitacaoResponse(BaseModel):
     endereco: str
     categoria_id: int
     usuario_id: int
-    status: str  # "PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"
+    status: str  # Será convertido por field_serializer (ex: "EM_ANDAMENTO")
     contador_apoios: int
     prazo_resolucao: Optional[int] = None
     criado_em: datetime
@@ -163,10 +189,22 @@ class SolicitacaoResponse(BaseModel):
     
     @field_serializer('status')
     def serializar_status(self, value):
-        """Converte Enum StatusSolicitacaoEnum para string"""
-        if hasattr(value, 'value'):
-            return value.value
-        return str(value)
+        """
+        Converte Enum do BD para o NAME (string).
+        
+        Exemplo:
+            Se BD tem StatusSolicitacaoEnum.EM_ANDAMENTO (value=3)
+            → Retorna "EM_ANDAMENTO" (string)
+        """
+        if isinstance(value, StatusSolicitacaoEnum):
+            return value.name  # "PENDENTE", "EM_ANALISE", etc
+        
+        # Se vier como int, converte para enum e pega o nome
+        try:
+            enum_obj = StatusSolicitacaoEnum.from_value(value)
+            return enum_obj.name
+        except:
+            return str(value)
 
 
 # ============================================
@@ -246,8 +284,17 @@ class AtualizacaoSolicitacaoCreate(BaseModel):
     
     Registra cada mudança de status para histórico completo.
     """
-    status_novo: StatusSolicitacaoSchema = Field(..., description="Novo status")
+    status_novo: str = Field(..., description="Novo status (PENDENTE, EM_ANALISE, EM_ANDAMENTO, RESOLVIDO, CANCELADO)")
     descricao: str = Field(..., min_length=1, max_length=2000, description="Motivo/descrição da mudança")
+
+    @field_validator('status_novo', mode='before')
+    @classmethod
+    def validar_status(cls, v):
+        """Valida se o status é válido"""
+        status_validos = ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
+        if v not in status_validos:
+            raise ValueError(f"Status '{v}' inválido. Use: {', '.join(status_validos)}")
+        return v
 
 
 class AtualizacaoSolicitacaoResponse(BaseModel):

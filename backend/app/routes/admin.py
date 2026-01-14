@@ -6,7 +6,7 @@
 # Solicitações, Avaliações, Dashboard
 # ============================================================================
 
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
@@ -18,7 +18,7 @@ from app.models import (
     TipoUsuarioEnum, StatusSolicitacaoEnum
 )
 from app.schemas import (
-    SolicitacaoResponse, AtualizacaoSolicitacaoResponse, AvaliacaoResponse
+    SolicitacaoResponse, AtualizacaoSolicitacaoResponse, AvaliacaoResponse, SolicitacaoUpdate
 )
 from app.utils.seguranca import extrair_user_id_do_token
 from database.connection import obter_conexao
@@ -131,8 +131,7 @@ def listar_solicitacoes_admin(
 )
 def atualizar_status_solicitacao_admin(
     solicitacao_id: int,
-    novo_status: str,
-    descricao: str,
+    body: SolicitacaoUpdate = Body(...),  # ← Recebe schema (validação automática!),
     db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
@@ -160,48 +159,102 @@ def atualizar_status_solicitacao_admin(
             detail="Solicitação não encontrada"
         )
     
-    # Validar novo status
-    status_validos = ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
-    if novo_status not in status_validos:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Status inválido"
-        )
+    # # ✅ Status anterior (para histórico)
+    # # Converter para enum ANTES de alterar
+    # from app.utils.enums import StatusSolicitacaoEnum
+    # status_anterior_enum = StatusSolicitacaoEnum.from_value(solicitacao.status.value)
+    # status_anterior_label = status_anterior_enum.label
     
-    # Status anterior (para histórico)
-    status_anterior = solicitacao.status.name if hasattr(solicitacao.status, 'name') else str(solicitacao.status)
+    # # Registrar mudança no histórico
+    # atualizacao = AtualizacaoSolicitacao(
+    #     solicitacao_id=solicitacao_id,
+    #     administrador_id=admin_id,
+    #     status_anterior=status_anterior_enum.name,
+    #     status_novo=body.status,          # ← Usa body.status (já validado)
+    #     descricao=body.descricao_admin,   # ← Usa body.descricao_admin (consistente)
+    #     criado_em=datetime.now()
+    # )
     
-    # Registrar mudança no histórico
+    # db.add(atualizacao)
+    
+    # # Atualizar status da solicitação
+    # solicitacao.status = StatusSolicitacaoEnum.from_name(body.status)
+    # solicitacao.atualizado_em = datetime.now()
+    
+    # db.commit()
+    # db.refresh(solicitacao)
+    
+    # # ========== ✅ CRIAR NOTIFICAÇÃO PARA O CIDADÃO ==========
+    # from app.utils.servico_notificacao import criar_notificacao_status_atualizado
+    
+    # # Criar mensagem amigável
+    # titulo = f"Sua solicitação #{solicitacao.protocolo} foi atualizada"
+
+    # # ✅ Usar .label para texto amigável
+    # status_novo_enum = StatusSolicitacaoEnum.from_name(body.status)
+    # conteudo = f'Status mudou de "{StatusSolicitacaoEnum.from_value(int(solicitacao.status.value)).label}" para "{status_novo_enum.label}". Observação do administrador: {body.descricao_admin}. Clique para ver detalhes e acompanhar.'
+    
+    # # Criar notificação (vai para banco)
+    # try:
+    #     criar_notificacao_status_atualizado(
+    #         db=db,
+    #         usuario_id=solicitacao.usuario_id,  # ← Cidadão que criou a solicitação
+    #         solicitacao_id=solicitacao_id,
+    #         titulo=titulo,
+    #         conteudo=conteudo
+    #     )
+    #     logger.info(f"✅ Notificação criada para usuário {solicitacao.usuario_id}")
+    # except Exception as e:
+    #     logger.error(f"❌ Erro ao criar notificação: {str(e)}")
+    #     # Não bloqueia a atualização se notificação falhar
+    
+    # # ========== FIM CRIAÇÃO DE NOTIFICAÇÃO ==========
+    
+    # logger.info(f"✅ Status atualizado: solicitacao_id={solicitacao_id} - {status_anterior_label} → {body.status}")
+    
+    # return solicitacao
+
+    from app.utils.enums import StatusSolicitacaoEnum
+
+    # ✅ PASSO 1: Extrair status ANTERIOR (ANTES de atualizar)
+    status_anterior_enum = StatusSolicitacaoEnum.from_value(solicitacao.status.value)
+    status_anterior_label = status_anterior_enum.label  # ← GUARDAR AQUI!
+
+    # ✅ PASSO 2: Converter novo status
+    status_novo_enum = StatusSolicitacaoEnum.from_name(body.status)
+    status_novo_label = status_novo_enum.label  # ← GUARDAR AQUI!
+
+    # ✅ PASSO 3: Registrar mudança no histórico (antes de atualizar)
     atualizacao = AtualizacaoSolicitacao(
         solicitacao_id=solicitacao_id,
         administrador_id=admin_id,
-        status_anterior=status_anterior,
-        status_novo=novo_status,
-        descricao=descricao,
+        status_anterior=status_anterior_enum.name,
+        status_novo=body.status,
+        descricao=body.descricao_admin,
         criado_em=datetime.now()
     )
-    
+
     db.add(atualizacao)
-    
-    # Atualizar status da solicitação
-    solicitacao.status = novo_status
+
+    # ✅ PASSO 4: Atualizar status da solicitação
+    solicitacao.status = status_novo_enum
     solicitacao.atualizado_em = datetime.now()
-    
+
     db.commit()
     db.refresh(solicitacao)
-    
-    # ========== ✅ CRIAR NOTIFICAÇÃO PARA O CIDADÃO ==========
+
+    # ✅ PASSO 5: Criar notificação (AGORA sim, com labels já guardados)
     from app.utils.servico_notificacao import criar_notificacao_status_atualizado
-    
-    # Criar mensagem amigável
+
     titulo = f"Sua solicitação #{solicitacao.protocolo} foi atualizada"
-    conteudo = f"Status mudou de '{status_anterior}' para '{novo_status}'. Observação do administrador: {descricao}. Clique para ver detalhes e acompanhar."
-    
-    # Criar notificação (vai para banco + email depois)
+
+    # ✅ USAR AS VARIÁVEIS JÁ GUARDADAS (não refazer conversão)
+    conteudo = f'Status mudou de "{status_anterior_label}" para "{status_novo_label}". Observação do administrador: {body.descricao_admin}'
+
     try:
         criar_notificacao_status_atualizado(
             db=db,
-            usuario_id=solicitacao.usuario_id,  # ← Cidadão que criou a solicitação
+            usuario_id=solicitacao.usuario_id,
             solicitacao_id=solicitacao_id,
             titulo=titulo,
             conteudo=conteudo
@@ -209,14 +262,12 @@ def atualizar_status_solicitacao_admin(
         logger.info(f"✅ Notificação criada para usuário {solicitacao.usuario_id}")
     except Exception as e:
         logger.error(f"❌ Erro ao criar notificação: {str(e)}")
-        # Não bloqueia a atualização se notificação falhar
-    
-    # ========== FIM CRIAÇÃO DE NOTIFICAÇÃO ==========
-    
-    logger.info(f"✅ Status atualizado: solicitacao_id={solicitacao_id} - {status_anterior} → {novo_status}")
-    
-    return solicitacao
 
+    # ========== FIM CRIAÇÃO DE NOTIFICAÇÃO ==========
+
+    logger.info(f"✅ Status atualizado: solicitacao_id={solicitacao_id} - {status_anterior_label} → {status_novo_label}")
+
+    return solicitacao
 
 
 @router.get(

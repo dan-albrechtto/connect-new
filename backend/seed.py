@@ -58,9 +58,10 @@ def seed_status(db):
 def seed_categorias(db):
     """Cria as 3 categorias de problemas"""
     categorias_list = [
-        {"id": 1, "nome": "Coleta de Lixo", "descricao": "Lixo não coletado", "icone": "🗑️", "cor_hex": "#FF6B6B"},
+        {"id": 1, "nome": "Coleta de Lixo", "descricao": "Lixo não coletado", "icone": "🗑️", "cor_hex": "#6BCB77"},
         {"id": 2, "nome": "Iluminação Pública", "descricao": "Poste sem luz", "icone": "💡", "cor_hex": "#FFD93D"},
-        {"id": 3, "nome": "Acessibilidade", "descricao": "Calçada quebrada, rampa faltante", "icone": "♿", "cor_hex": "#6BCB77"}
+        {"id": 3, "nome": "Acessibilidade", "descricao": "Calçada quebrada, rampa faltante", "icone": "♿", "cor_hex": "#4ECDC4"},
+        {"id": 4, "nome": "Vias", "descricao": "Buracos, asfalto danificado, placas", "icone": "🚗", "cor_hex": "#FF6B6B"}
     ]
     
     for cat_data in categorias_list:
