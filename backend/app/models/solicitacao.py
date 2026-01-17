@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, Enum, func
 from database.connection import Base
 from app.utils.enums import StatusSolicitacaoEnum  # Ajuste conforme sua estrutura
-from sqlalchemy.orm import relationship
 
 # ============================================
 # MODELO: Solicitacao
@@ -45,8 +44,8 @@ class Solicitacao(Base):
     #     nullable=False
     # )
     status = Column(
-        Enum(StatusSolicitacaoEnum, native_enum=False),
-        default=StatusSolicitacaoEnum.PENDENTE,
+        String(50),
+        default="PENDENTE",
         nullable=False
     )
 
@@ -88,11 +87,8 @@ class Solicitacao(Base):
         nullable=False
     )
 
-    # #===== RELACIONAMENTOS ==========
+        # ========== RELACIONAMENTOS ==========
+    # categoria = relationship("Categoria")
     # usuario = relationship("Usuario", back_populates="solicitacoes")
-    # categoria = relationship("Categoria", back_populates="solicitacoes")
-    # fotos = relationship("Foto", back_populates="solicitacao")
-    # apoios = relationship("Apoio", back_populates="solicitacao")
-    # avaliacoes = relationship("Avaliacao", back_populates="solicitacao")
-    # atualizacoes = relationship("AtualizacaoSolicitacao", back_populates="solicitacao")
-    # notificacoes = relationship("Notificacao", back_populates="solicitacao")
+    # # comentarios = relationship("Comentario", back_populates="solicitacao", cascade="all, delete-orphan")
+    # atualizacoes = relationship("AtualizacaoSolicitacao", back_populates="solicitacao", cascade="all, delete-orphan")

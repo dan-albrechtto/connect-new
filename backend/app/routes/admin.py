@@ -6,7 +6,7 @@
 # Solicitações, Avaliações, Dashboard
 # ============================================================================
 
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
@@ -15,13 +15,16 @@ import logging
 
 from app.models import (
     Solicitacao, Avaliacao, Usuario, AtualizacaoSolicitacao,
-    TipoUsuarioEnum, StatusSolicitacaoEnum
+    TipoUsuarioEnum
 )
 from app.schemas import (
-    SolicitacaoResponse, AtualizacaoSolicitacaoResponse, AvaliacaoResponse, SolicitacaoUpdate
+    SolicitacaoResponse, AtualizacaoSolicitacaoResponse, AvaliacaoResponse
 )
 from app.utils.seguranca import extrair_user_id_do_token
+
 from database.connection import obter_conexao
+
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
@@ -69,7 +72,7 @@ def obter_admin_id(authorization: str) -> int:
     response_model=dict,
     summary="Listar solicitações (admin)"
 )
-def listar_solicitacoes_admin(
+async def listar_solicitacoes_admin(
     status_filtro: Optional[str] = None,
     categoria_id: Optional[int] = None,
     skip: int = 0,
@@ -85,6 +88,8 @@ def listar_solicitacoes_admin(
     - Paginação: skip/limit
     - Ordena por data (mais recentes primeiro)
     """
+    
+    # ========== VALIDAR PERMISSÃO ==========
     admin_id = obter_admin_id(authorization)
     
     if not verificar_admin(db, admin_id):
@@ -93,35 +98,34 @@ def listar_solicitacoes_admin(
             detail="Apenas administradores"
         )
     
-    # Construir query
-    query = db.query(Solicitacao)
+    # ========== CHAMAR SERVICE (TODO O TRABALHO PESADO AQUI) ==========
+    from app.services.solicitacao_service import listar_solicitacoes_com_filtros
     
-    # Filtro por status
-    if status_filtro:
-        status_validos = ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
-        if status_filtro not in status_validos:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Status inválido"
-            )
-        query = query.filter(Solicitacao.status == status_filtro)
+    try:
+        resultado = await listar_solicitacoes_com_filtros(
+            db,
+            status_filtro=status_filtro,
+            categoria_id=categoria_id,
+            skip=skip,
+            limit=limit
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     
-    # Filtro por categoria
-    if categoria_id:
-        query = query.filter(Solicitacao.categoria_id == categoria_id)
-    
-    # Contar total ANTES de limitar
-    total = query.count()
-    
-    # Aplicar paginação
-    solicitacoes = query.order_by(Solicitacao.criado_em.desc()).offset(skip).limit(limit).all()
-    
+    # ========== SERIALIZAR E RETORNAR ==========
     return {
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-        "solicitacoes": [SolicitacaoResponse.from_orm(s) for s in solicitacoes]
+        "total": resultado["total"],
+        "skip": resultado["skip"],
+        "limit": resultado["limit"],
+        "solicitacoes": [
+            SolicitacaoResponse.from_orm(s) 
+            for s in resultado["solicitacoes"]
+        ]
     }
+
 
 
 @router.put(
@@ -129,9 +133,14 @@ def listar_solicitacoes_admin(
     response_model=SolicitacaoResponse,
     summary="Atualizar status da solicitação"
 )
-def atualizar_status_solicitacao_admin(
+async def atualizar_status_solicitacao_admin(
     solicitacao_id: int,
-    body: SolicitacaoUpdate = Body(...),  # ← Recebe schema (validação automática!),
+<<<<<<< development
+    novo_status: str,
+    descricao: str,
+=======
+    body: SolicitacaoUpdate = Body(...),
+>>>>>>> local
     db: Session = Depends(obter_conexao),
     authorization: str = Header(None)
 ):
@@ -141,8 +150,9 @@ def atualizar_status_solicitacao_admin(
     - Novo status deve ser: PENDENTE, EM_ANALISE, EM_ANDAMENTO, RESOLVIDO, CANCELADO
     - Descrição obrigatória (motivo da mudança)
     - Registra automaticamente no histórico de atualizações
-    - ✅ CRIA NOTIFICAÇÃO AUTOMÁTICA para o cidadão
     """
+    
+    # ========== VALIDAR PERMISSÃO ==========
     admin_id = obter_admin_id(authorization)
     
     if not verificar_admin(db, admin_id):
@@ -151,123 +161,88 @@ def atualizar_status_solicitacao_admin(
             detail="Apenas administradores"
         )
     
-    # Validar solicitação existe
+    # ========== VALIDAR SOLICITAÇÃO EXISTE ==========
     solicitacao = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    
     if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Solicitação não encontrada"
         )
     
-    # # ✅ Status anterior (para histórico)
-    # # Converter para enum ANTES de alterar
-    # from app.utils.enums import StatusSolicitacaoEnum
-    # status_anterior_enum = StatusSolicitacaoEnum.from_value(solicitacao.status.value)
-    # status_anterior_label = status_anterior_enum.label
+<<<<<<< development
+    # Validar novo status
+    status_validos = ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
+    if novo_status not in status_validos:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status inválido"
+        )
     
-    # # Registrar mudança no histórico
-    # atualizacao = AtualizacaoSolicitacao(
-    #     solicitacao_id=solicitacao_id,
-    #     administrador_id=admin_id,
-    #     status_anterior=status_anterior_enum.name,
-    #     status_novo=body.status,          # ← Usa body.status (já validado)
-    #     descricao=body.descricao_admin,   # ← Usa body.descricao_admin (consistente)
-    #     criado_em=datetime.now()
-    # )
+    # Status anterior (para histórico)
+    status_anterior = solicitacao.status.name if hasattr(solicitacao.status, 'name') else str(solicitacao.status)
     
-    # db.add(atualizacao)
-    
-    # # Atualizar status da solicitação
-    # solicitacao.status = StatusSolicitacaoEnum.from_name(body.status)
-    # solicitacao.atualizado_em = datetime.now()
-    
-    # db.commit()
-    # db.refresh(solicitacao)
-    
-    # # ========== ✅ CRIAR NOTIFICAÇÃO PARA O CIDADÃO ==========
-    # from app.utils.servico_notificacao import criar_notificacao_status_atualizado
-    
-    # # Criar mensagem amigável
-    # titulo = f"Sua solicitação #{solicitacao.protocolo} foi atualizada"
-
-    # # ✅ Usar .label para texto amigável
-    # status_novo_enum = StatusSolicitacaoEnum.from_name(body.status)
-    # conteudo = f'Status mudou de "{StatusSolicitacaoEnum.from_value(int(solicitacao.status.value)).label}" para "{status_novo_enum.label}". Observação do administrador: {body.descricao_admin}. Clique para ver detalhes e acompanhar.'
-    
-    # # Criar notificação (vai para banco)
-    # try:
-    #     criar_notificacao_status_atualizado(
-    #         db=db,
-    #         usuario_id=solicitacao.usuario_id,  # ← Cidadão que criou a solicitação
-    #         solicitacao_id=solicitacao_id,
-    #         titulo=titulo,
-    #         conteudo=conteudo
-    #     )
-    #     logger.info(f"✅ Notificação criada para usuário {solicitacao.usuario_id}")
-    # except Exception as e:
-    #     logger.error(f"❌ Erro ao criar notificação: {str(e)}")
-    #     # Não bloqueia a atualização se notificação falhar
-    
-    # # ========== FIM CRIAÇÃO DE NOTIFICAÇÃO ==========
-    
-    # logger.info(f"✅ Status atualizado: solicitacao_id={solicitacao_id} - {status_anterior_label} → {body.status}")
-    
-    # return solicitacao
-
-    from app.utils.enums import StatusSolicitacaoEnum
-
-    # ✅ PASSO 1: Extrair status ANTERIOR (ANTES de atualizar)
-    status_anterior_enum = StatusSolicitacaoEnum.from_value(solicitacao.status.value)
-    status_anterior_label = status_anterior_enum.label  # ← GUARDAR AQUI!
-
-    # ✅ PASSO 2: Converter novo status
-    status_novo_enum = StatusSolicitacaoEnum.from_name(body.status)
-    status_novo_label = status_novo_enum.label  # ← GUARDAR AQUI!
-
-    # ✅ PASSO 3: Registrar mudança no histórico (antes de atualizar)
+    # Registrar mudança no histórico
     atualizacao = AtualizacaoSolicitacao(
         solicitacao_id=solicitacao_id,
         administrador_id=admin_id,
-        status_anterior=status_anterior_enum.name,
-        status_novo=body.status,
-        descricao=body.descricao_admin,
+        status_anterior=status_anterior,
+        status_novo=novo_status,
+        descricao=descricao,
         criado_em=datetime.now()
     )
-
+    
     db.add(atualizacao)
-
-    # ✅ PASSO 4: Atualizar status da solicitação
-    solicitacao.status = status_novo_enum
+    
+    # Atualizar status da solicitação
+    solicitacao.status = novo_status
     solicitacao.atualizado_em = datetime.now()
-
+    
     db.commit()
     db.refresh(solicitacao)
-
-    # ✅ PASSO 5: Criar notificação (AGORA sim, com labels já guardados)
-    from app.utils.servico_notificacao import criar_notificacao_status_atualizado
-
-    titulo = f"Sua solicitação #{solicitacao.protocolo} foi atualizada"
-
-    # ✅ USAR AS VARIÁVEIS JÁ GUARDADAS (não refazer conversão)
-    conteudo = f'Status mudou de "{status_anterior_label}" para "{status_novo_label}". Observação do administrador: {body.descricao_admin}'
-
-    try:
-        criar_notificacao_status_atualizado(
-            db=db,
-            usuario_id=solicitacao.usuario_id,
-            solicitacao_id=solicitacao_id,
-            titulo=titulo,
-            conteudo=conteudo
-        )
-        logger.info(f"✅ Notificação criada para usuário {solicitacao.usuario_id}")
-    except Exception as e:
-        logger.error(f"❌ Erro ao criar notificação: {str(e)}")
-
-    # ========== FIM CRIAÇÃO DE NOTIFICAÇÃO ==========
-
-    logger.info(f"✅ Status atualizado: solicitacao_id={solicitacao_id} - {status_anterior_label} → {status_novo_label}")
-
+    
+    logger.info(f"✅ Status atualizado: solicitacao_id={solicitacao_id} - {status_anterior} → {novo_status}")
+    
     return solicitacao
+=======
+    # ========== CHAMAR SERVICE ==========
+    from app.services.solicitacao_service import atualizar_status_e_notificar
+    
+    try:
+        resultado = await atualizar_status_e_notificar(
+            db,
+            solicitacao_id=solicitacao_id,
+            novo_status=body.status.value,
+            descricao_admin=body.descricao_admin
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    
+    # ========== REGISTRAR ADMIN_ID NO HISTÓRICO ==========
+    # O service criou o registro, mas sem admin_id. Vamos atualizar:
+    from app.models.atualizacao_solicitacao import AtualizacaoSolicitacao
+    
+    atualizacao_recente = db.query(AtualizacaoSolicitacao).filter(
+        AtualizacaoSolicitacao.solicitacao_id == solicitacao_id
+    ).order_by(AtualizacaoSolicitacao.criado_em.desc()).first()
+    
+    if atualizacao_recente:
+        atualizacao_recente.administrador_id = admin_id
+        db.commit()
+    
+    # ========== LOG E RETORNO ==========
+    logger.info(
+        f"✅ Status atualizado: solicitacao_id={solicitacao_id} - "
+        f"{resultado['status_novo_label']} (admin_id={admin_id})"
+    )
+    
+    # ========== RETORNAR SOLICITAÇÃO ATUALIZADA ==========
+    solicitacao_atualizada = db.query(Solicitacao).filter_by(id=solicitacao_id).first()
+    return SolicitacaoResponse.from_orm(solicitacao_atualizada)
+>>>>>>> local
 
 
 @router.get(

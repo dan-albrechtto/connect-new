@@ -25,7 +25,9 @@ from app.schemas import (
     SolicitacaoCreate, 
     SolicitacaoUpdate,
     SolicitacaoResponse,
-    AtualizacaoSolicitacaoResponse
+    AtualizacaoSolicitacaoResponse,
+    ComentarioCreate,
+    ComentarioResponse
 )
 from app.utils.seguranca import extrair_user_id_do_token
 from database.connection import obter_conexao

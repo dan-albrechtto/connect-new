@@ -4,10 +4,22 @@ from enum import Enum as PyEnum
 from typing import Optional
 
 
-# ========== ENUMS - IMPORTAR DIRETO DO UTILS ==========
+# ========== ENUMS ==========
+# DEVEM VIR ANTES de serem usados!
 
-from app.utils.enums import StatusSolicitacaoEnum, TipoUsuarioEnum
+class StatusSolicitacaoSchema(str, PyEnum):
+    """Enum de status para exibição na API"""
+    PENDENTE = "PENDENTE"
+    EM_ANALISE = "EM_ANALISE"
+    EM_ANDAMENTO = "EM_ANDAMENTO"
+    RESOLVIDO = "RESOLVIDO"
+    CANCELADO = "CANCELADO"
 
+
+class TipoUsuarioSchema(str, PyEnum):
+    """Enum de tipo de usuário para exibição na API"""
+    CIDADAO = "CIDADAO"
+    ADMINISTRADOR = "ADMINISTRADOR"
 
 
 # ============================================
@@ -30,7 +42,7 @@ class UsuarioResponse(BaseModel):
     nome: str
     email: str
     cpf: str
-    tipo_usuario: int  # Armazena como int (1 ou 2)
+    tipo_usuario: str
     telefone: Optional[str] = None
     ativo: bool
     criado_em: datetime
@@ -40,22 +52,10 @@ class UsuarioResponse(BaseModel):
     
     @field_serializer('tipo_usuario')
     def serializar_tipo_usuario(self, value):
-        """
-        Converte valor int/Enum para o nome do enum (STRING).
-        
-        Exemplo:
-            Se BD tem 1 → retorna "CIDADAO"
-            Se BD tem 2 → retorna "ADMINISTRADOR"
-        """
-        if isinstance(value, TipoUsuarioEnum):
-            return value.name  # "CIDADAO", "ADMINISTRADOR"
-        
-        # Se vier como int, converte para enum e pega o nome
-        try:
-            enum_obj = TipoUsuarioEnum.from_value(value)
-            return enum_obj.name
-        except:
-            return str(value)
+        """Converte Enum TipoUsuarioEnum para string"""
+        if hasattr(value, 'value'):
+            return value.value
+        return str(value)
     
 class UsuarioUpdate(BaseModel):
     """Schema para ATUALIZAR dados básicos do usuário"""
@@ -109,14 +109,13 @@ class CategoriaResponse(BaseModel):
     - 1: Coleta de Lixo (🗑️)
     - 2: Iluminação Pública (💡)
     - 3: Acessibilidade (♿)
-    - 4: Vias (🚗)
     
     Admin e cidadão apenas CONSULTAM, não criam/editam/deletam.
     """
     id: int
     nome: str
     descricao: str
-    icone: str  # Emoji: "🗑️", "💡", "♿", "🚗"
+    icone: str  # Emoji: "🗑️", "💡", "♿"
     ativo: bool
     criado_em: datetime
 
@@ -138,15 +137,20 @@ class SolicitacaoCreate(BaseModel):
 
 
 class SolicitacaoUpdate(BaseModel):
+<<<<<<< development
+    """Schema para ATUALIZAR status de solicitação (input do admin)"""
+    status: StatusSolicitacaoSchema = Field(..., description="Novo status da solicitação")
+    descricao: str = Field(..., min_length=1, max_length=2000, description="Motivo/descrição da atualização")
+=======
     """
     Schema para ATUALIZAR status de solicitação (input do admin).
     
     O admin envia: {"status": "EM_ANDAMENTO", "descricao_admin": "..."}
     O sistema converte automaticamente para enum.
     """
-    status: str = Field(
+    status: StatusSolicitacaoEnum = Field(
         ...,
-        description="Novo status (PENDENTE, EM_ANALISE, EM_ANDAMENTO, RESOLVIDO, CANCELADO)"
+        description="Novo status: PENDENTE, EM_ANALISE, EM_ANDAMENTO, RESOLVIDO, CANCELADO"
     )
     descricao_admin: str = Field(
         ...,
@@ -158,18 +162,26 @@ class SolicitacaoUpdate(BaseModel):
     @field_validator('status', mode='before')
     @classmethod
     def validar_status(cls, v):
-        """Valida se o status é válido"""
-        status_validos = ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
-        if v not in status_validos:
-            raise ValueError(f"Status '{v}' inválido. Use: {', '.join(status_validos)}")
-        return v
+        """
+        Valida se o status é válido.
+        Aceita tanto string quanto Enum.
+        """
+        if isinstance(v, StatusSolicitacaoEnum):
+            return v
+        
+        # Se é string, tenta converter para enum
+        if isinstance(v, str):
+            try:
+                return StatusSolicitacaoEnum.from_name(v)
+            except ValueError as e:
+                raise ValueError(str(e))
+        
+        raise ValueError(f"Status deve ser string, recebido: {type(v)}")
+>>>>>>> local
 
 
 class SolicitacaoResponse(BaseModel):
-    """
-    Schema para RETORNAR solicitação (output da API)
-    Nota: status vem do BD como Enum, aqui convertemos para o nome (STRING).
-    """
+    """Schema para RETORNAR solicitação (output da API)"""
     id: int
     protocolo: str
     descricao: str
@@ -178,7 +190,7 @@ class SolicitacaoResponse(BaseModel):
     endereco: str
     categoria_id: int
     usuario_id: int
-    status: str  # Será convertido por field_serializer (ex: "EM_ANDAMENTO")
+    status: str  # "PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"
     contador_apoios: int
     prazo_resolucao: Optional[int] = None
     criado_em: datetime
@@ -189,22 +201,22 @@ class SolicitacaoResponse(BaseModel):
     
     @field_serializer('status')
     def serializar_status(self, value):
+<<<<<<< development
+        """Converte Enum StatusSolicitacaoEnum para string"""
+        if hasattr(value, 'value'):
+            return value.value
+        return str(value)
+=======
         """
-        Converte Enum do BD para o NAME (string).
+        Status é STRING no BD, retorna como STRING para API.
         
-        Exemplo:
-            Se BD tem StatusSolicitacaoEnum.EM_ANDAMENTO (value=3)
-            → Retorna "EM_ANDAMENTO" (string)
+        Se por algum motivo vier como Enum, converte para string.
         """
         if isinstance(value, StatusSolicitacaoEnum):
-            return value.name  # "PENDENTE", "EM_ANALISE", etc
+            return value.value  # Enum → String
         
-        # Se vier como int, converte para enum e pega o nome
-        try:
-            enum_obj = StatusSolicitacaoEnum.from_value(value)
-            return enum_obj.name
-        except:
-            return str(value)
+        return str(value)  # Já é string, retorna como está
+>>>>>>> local
 
 
 # ============================================
@@ -284,17 +296,8 @@ class AtualizacaoSolicitacaoCreate(BaseModel):
     
     Registra cada mudança de status para histórico completo.
     """
-    status_novo: str = Field(..., description="Novo status (PENDENTE, EM_ANALISE, EM_ANDAMENTO, RESOLVIDO, CANCELADO)")
+    status_novo: StatusSolicitacaoSchema = Field(..., description="Novo status")
     descricao: str = Field(..., min_length=1, max_length=2000, description="Motivo/descrição da mudança")
-
-    @field_validator('status_novo', mode='before')
-    @classmethod
-    def validar_status(cls, v):
-        """Valida se o status é válido"""
-        status_validos = ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
-        if v not in status_validos:
-            raise ValueError(f"Status '{v}' inválido. Use: {', '.join(status_validos)}")
-        return v
 
 
 class AtualizacaoSolicitacaoResponse(BaseModel):
@@ -400,103 +403,24 @@ class ErrorResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now, description="Momento em que o erro ocorreu")
 
 
-# # ============================================
-# # COMENTÁRIOS
-# # ============================================
-
-# class ComentarioCreate(BaseModel):
-#     """Request para criar comentário"""
-#     texto: str = Field(..., min_length=1, max_length=500)
-
-
-# class ComentarioResponse(BaseModel):
-#     """Response com dados do comentário"""
-#     id: int
-#     solicitacao_id: int
-#     usuario_id: int
-#     texto: str
-#     criado_em: datetime
-#     usuario_nome: Optional[str] = None
-#     usuario_tipo: Optional[str] = None
-    
-#     class Config:
-#         from_attributes = True
-
 # ============================================
-# NOTIFICACAO
+# COMENTÁRIOS
 # ============================================
 
-class NotificacaoCreate(BaseModel):
-    """Schema para CRIAR notificação (uso interno do backend)
-    
-    Quando admin atualiza status de uma solicitação,
-    uma notificação é criada automaticamente.
-    """
-    usuario_id: int = Field(..., description="ID do usuário que receberá")
-    solicitacao_id: int = Field(..., description="ID da solicitação relacionada")
-    titulo: str = Field(
-        ...,
-        max_length=255,
-        description="Título da notificação"
-    )
-    conteudo: str = Field(
-        ...,
-        description="Conteúdo detalhado da notificação"
-    )
+class ComentarioCreate(BaseModel):
+    """Request para criar comentário"""
+    texto: str = Field(..., min_length=1, max_length=500)
 
 
-class NotificacaoResponse(BaseModel):
-    """Schema para RETORNAR notificação via API
-    
-    Usado em: GET /api/notificacoes/minhas
-    """
+class ComentarioResponse(BaseModel):
+    """Response com dados do comentário"""
     id: int
-    usuario_id: int
     solicitacao_id: int
-    titulo: str
-    conteudo: str
-    lida: bool
+    usuario_id: int
+    texto: str
     criado_em: datetime
-    atualizado_em: Optional[datetime] = None
+    usuario_nome: Optional[str] = None
+    usuario_tipo: Optional[str] = None
     
     class Config:
         from_attributes = True
-
-
-class NotificacaoListaResponse(BaseModel):
-    """Resposta ao listar notificações
-    
-    Retorna: total, quantidade não-lidas, e lista
-    """
-    total: int = Field(..., description="Quantidade total de notificações")
-    nao_lidas: int = Field(..., description="Quantidade de não-lidas")
-    notificacoes: list[NotificacaoResponse] = Field(
-        default_factory=list,
-        description="Lista de notificações"
-    )
-
-
-class NotificacaoMarcarLidaRequest(BaseModel):
-    """Request para marcar notificação como lida"""
-    lida: bool = Field(default=True, description="Marcar como lida")
-
-
-class NotificacaoMarcarLidaResponse(BaseModel):
-    """Resposta ao marcar como lida"""
-    sucesso: bool
-    mensagem: str
-    nao_lidas_restantes: int
-
-
-class NotificacaoDeletarResponse(BaseModel):
-    """Resposta ao deletar notificação"""
-    sucesso: bool
-    mensagem: str
-
-
-class NotificacaoContarResponse(BaseModel):
-    """Resposta ao contar não-lidas"""
-    nao_lidas: int = Field(
-        ...,
-        description="Quantidade de notificações não-lidas"
-    )

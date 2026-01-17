@@ -1,6 +1,18 @@
+# backend/app/utils/enums.py
+
+"""
+Enums centralizados do sistema Connect Cidade
+
+Fonte única de verdade para valores constantes:
+- Status de solicitações
+- Tipos de usuário
+- Etc.
+"""
+
 from enum import Enum as PyEnum
 
 
+<<<<<<< development
 # ========== ENUMS PYTHON ==========
 # Define valores pré-fixos para tipos de usuário e status
 
@@ -9,37 +21,6 @@ class TipoUsuarioEnum(PyEnum):
     CIDADAO = 1
     ADMINISTRADOR = 2
 
-    @classmethod
-    def from_name(cls, name: str):
-        """
-        Converte NAME (string) para ENUM.
-        
-        Útil quando recebe "EM_ANDAMENTO" do Swagger e precisa converter.
-        
-        Exemplo:
-            status_enum = StatusSolicitacaoEnum.from_name("EM_ANDAMENTO")
-            # → StatusSolicitacaoEnum.EM_ANDAMENTO
-        """
-        try:
-            return cls[name]
-        except KeyError:
-            raise ValueError(f"Status '{name}' não existe")
-    
-    @classmethod
-    def from_value(cls, value: int):
-        """
-        Converte VALUE (int) para ENUM.
-        
-        Útil quando busca do BD (que armazena int) e precisa de enum.
-        
-        Exemplo:
-            status_enum = StatusSolicitacaoEnum.from_value(3)
-            # → StatusSolicitacaoEnum.EM_ANDAMENTO
-        """
-        try:
-            return cls(value)
-        except ValueError:
-            raise ValueError(f"Status com valor '{value}' não existe")
 
 class StatusSolicitacaoEnum(PyEnum):
     """Enum para status da solicitação: estados possíveis."""
@@ -48,47 +29,126 @@ class StatusSolicitacaoEnum(PyEnum):
     EM_ANDAMENTO = 3       # Setor responsável está trabalhando
     RESOLVIDO = 4          # Problema foi solucionado
     CANCELADO = 5          # Foi cancelado (spam, duplicado, etc)
-
+=======
+class StatusSolicitacaoEnum(PyEnum):
+    """
+    Enum para status da solicitação: estados possíveis.
+    
+    Valores são STRINGS, não integers.
+    Exemplo: StatusSolicitacaoEnum.PENDENTE.value == "PENDENTE"
+    """
+    
+    PENDENTE = "PENDENTE"
+    EM_ANALISE = "EM_ANALISE"
+    EM_ANDAMENTO = "EM_ANDAMENTO"
+    RESOLVIDO = "RESOLVIDO"
+    CANCELADO = "CANCELADO"
+    
     @property
     def label(self) -> str:
-        """Retorna label amigável do status para exibição ao usuário"""
+        """
+        Retorna label amigável do status para exibição ao usuário em português.
+        
+        Exemplo:
+            StatusSolicitacaoEnum.EM_ANDAMENTO.label → "Em andamento"
+        """
         labels = {
-            1: "Pendente",
-            2: "Em análise",
-            3: "Em andamento",
-            4: "Resolvido",
-            5: "Cancelado"
+            "PENDENTE": "Pendente",
+            "EM_ANALISE": "Em análise",
+            "EM_ANDAMENTO": "Em andamento",
+            "RESOLVIDO": "Resolvido",
+            "CANCELADO": "Cancelado"
         }
         return labels.get(self.value, "Desconhecido")
     
     @classmethod
     def from_name(cls, name: str):
         """
-        Converte NAME (string) para ENUM.
+        Converte NAME (string uppercase) para ENUM.
         
-        Útil quando Swagger envia "EM_ANDAMENTO" como string.
+        Args:
+            name: Nome do enum (ex: "EM_ANDAMENTO")
+        
+        Returns:
+            StatusSolicitacaoEnum correspondente
+        
+        Raises:
+            ValueError: Se nome não existe
         
         Exemplo:
             status = StatusSolicitacaoEnum.from_name("EM_ANDAMENTO")
-            # → StatusSolicitacaoEnum.EM_ANDAMENTO (value=3)
+            # → StatusSolicitacaoEnum.EM_ANDAMENTO
         """
         try:
             return cls[name]
         except KeyError:
-            raise ValueError(f"Status '{name}' não existe. Válidos: {', '.join([s.name for s in cls])}")
+            valid_names = ", ".join([s.name for s in cls])
+            raise ValueError(
+                f"Status '{name}' não existe. "
+                f"Válidos: {valid_names}"
+            )
     
     @classmethod
-    def from_value(cls, value: int):
+    def from_value(cls, value: str):
         """
-        Converte VALUE (int) para ENUM.
+        Converte VALUE (string do BD ou API) para ENUM.
         
-        Útil quando busca do BD que armazena como int.
+        Args:
+            value: Valor da string (ex: "EM_ANDAMENTO")
+        
+        Returns:
+            StatusSolicitacaoEnum correspondente
+        
+        Raises:
+            ValueError: Se valor não existe
         
         Exemplo:
-            status = StatusSolicitacaoEnum.from_value(3)
+            status = StatusSolicitacaoEnum.from_value("EM_ANDAMENTO")
             # → StatusSolicitacaoEnum.EM_ANDAMENTO
         """
         try:
             return cls(value)
         except ValueError:
-            raise ValueError(f"Status com valor '{value}' não existe. Válidos: 1-5")
+            valid_values = ", ".join([s.value for s in cls])
+            raise ValueError(
+                f"Status '{value}' não existe. "
+                f"Válidos: {valid_values}"
+            )
+    
+    @classmethod
+    def get_all_values(cls) -> list:
+        """
+        Retorna lista de todos os valores válidos.
+        
+        Returns:
+            Lista de strings: ["PENDENTE", "EM_ANALISE", ...]
+        
+        Exemplo:
+            valores = StatusSolicitacaoEnum.get_all_values()
+            # → ["PENDENTE", "EM_ANALISE", "EM_ANDAMENTO", "RESOLVIDO", "CANCELADO"]
+        """
+        return [s.value for s in cls]
+
+
+class TipoUsuarioEnum(PyEnum):
+    """Enum para tipo de usuário: cidadão ou administrador."""
+    
+    CIDADAO = "CIDADAO"
+    ADMINISTRADOR = "ADMINISTRADOR"
+    
+    @classmethod
+    def from_name(cls, name: str):
+        """Converte NAME (string) para ENUM."""
+        try:
+            return cls[name]
+        except KeyError:
+            raise ValueError(f"Tipo de usuário '{name}' não existe")
+    
+    @classmethod
+    def from_value(cls, value: str):
+        """Converte VALUE (string) para ENUM."""
+        try:
+            return cls(value)
+        except ValueError:
+            raise ValueError(f"Tipo de usuário '{value}' não existe")
+>>>>>>> local
